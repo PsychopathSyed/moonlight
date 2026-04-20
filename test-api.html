@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Connection Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .success {
+            background: #4caf50;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .error {
+            background: #f44336;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .info {
+            background: #2196f3;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #ff9800;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #4f5b62;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Event Rental - API Connection Test</h1>
+
+    <div class="test-section">
+        <h2>Test 1: Check API Health</h2>
+        <button onclick="testAPI()">Test API Connection</button>
+        <div id="api-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Check Browser Info</h2>
+        <div id="browser-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Check DNS</h2>
+        <button onclick="checkDNS()">Check api.hadites.net DNS</button>
+        <div id="dns-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Clear Cache</h2>
+        <button onclick="clearCache()">Clear Local Storage</button>
+        <button onclick="hardRefresh()">Hard Refresh Page</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Login Test</h2>
+        <input type="text" id="username" placeholder="Username" value="admin" style="padding: 8px; margin: 5px;">
+        <input type="password" id="password" placeholder="Password" value="admin123" style="padding: 8px; margin: 5px;">
+        <button onclick="testLogin()">Test Login</button>
+        <div id="login-result"></div>
+    </div>
+
+    <script>
+        // Show browser info
+        document.getElementById('browser-info').innerHTML = `
+            <div class="info">
+                <strong>Page URL:</strong> ${window.location.href}<br>
+                <strong>API URL:</strong> http://api.hadites.net<br>
+                <strong>Fallback API:</strong> http://213.199.33.19:8000<br>
+                <strong>User Agent:</strong> ${navigator.userAgent}
+            </div>
+        `;
+
+        // Test DNS
+        async function checkDNS() {
+            const resultDiv = document.getElementById('dns-result');
+            resultDiv.innerHTML = '<div class="info">Checking DNS...</div>';
+
+            try {
+                // Check if api.hadites.net resolves
+                const response = await fetch('http://api.hadites.net/health', {
+                    method: 'GET',
+                    mode: 'no-cors' // This will fail if DNS is not set up
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ api.hadites.net is configured!<br>
+                            Status: ${data.status}<br>
+                            Database: ${data.database}<br>
+                            Can use this URL for API!
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ api.hadites.net DNS is not configured yet<br>
+                            <strong>Next steps:</strong><br>
+                            1. Check Apache virtual host configuration<br>
+                            2. Check if domain is pointed to correct IP<br>
+                            3. Use http://213.199.33.19:8000 until then
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                // DNS not configured yet
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ api.hadites.net DNS is not configured yet<br>
+                        <strong>Next steps:</strong><br>
+                        1. Check Apache virtual host configuration<br>
+                        2. Use http://213.199.33.19:8000 until then
+                    </div>
+                `;
+            }
+        }
+
+        // Test API connection
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = '<div class="info">Testing...</div>';
+
+            try {
+                const response = await fetch('http://api.hadites.net/health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Backend is reachable!<br>
+                            Status: ${data.status}<br>
+                            Database: ${data.database}<br>
+                            Version: ${data.version}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="warning">
+                            ⚠️  api.hadites.net DNS not ready yet<br>
+                            Trying fallback: http://213.199.33.19:8000
+                        </div>
+                    `;
+
+                    // Try fallback
+                    try {
+                        const fallbackResponse = await fetch('http://213.199.33.19:8000/health', {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+
+                        if (fallbackResponse.ok) {
+                            const data = await fallbackResponse.json();
+                            resultDiv.innerHTML += `
+                                <div class="success">
+                                    ✅ Fallback works!<br>
+                                    Status: ${data.status}<br>
+                                    Database: ${data.database}
+                                </div>
+                            `;
+                        }
+                    } catch (fallbackError) {
+                        resultDiv.innerHTML += `
+                            <div class="error">
+                                ❌ Fallback also failed: ${fallbackError.message}
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        ❌ Connection failed: ${error.message}<br>
+                        <strong>Possible causes:</strong><br>
+                        1. Backend is not running<br>
+                        2. Port 8000 is blocked by firewall<br>
+                        3. Network issue<br>
+                        4. DNS not configured yet
+                    </div>
+                `;
+            }
+        }
+
+        // Test login
+        async function testLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('login-result');
+            resultDiv.innerHTML = '<div class="info">Testing login...</div>';
+
+            try {
+                // Try api.hadites.net first
+                const response = await fetch('http://api.hadites.net/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            ✅ Login successful!<br>
+                            Token received: ${data.data.access_token ? 'Yes' : 'No'}<br>
+                            User: ${data.data.user ? data.data.user.username : 'N/A'}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Login failed: ${data.message || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                // Try fallback
+                try {
+                    const fallbackResponse = await fetch('http://213.199.33.19:8000/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+
+                    const data = await fallbackResponse.json();
+                    if (data.success) {
+                        resultDiv.innerHTML = `
+                            <div class="warning">
+                                ⚠️  api.hadites.net not ready, using fallback<br>
+                                ✅ Login successful!<br>
+                                Token received: Yes<br>
+                                User: ${data.data.user.username}
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="error">
+                                ❌ Login failed: ${data.message || 'Unknown error'}
+                            </div>
+                        `;
+                    }
+                } catch (fallbackError) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            ❌ Login request failed: ${fallbackError.message}
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Clear cache
+        function clearCache() {
+            localStorage.clear();
+            sessionStorage.clear();
+            alert('Local storage cleared!');
+        }
+
+        // Hard refresh
+        function hardRefresh() {
+            window.location.reload(true);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,436 @@
+import { useState, useEffect } from 'react';
+import {
+  Box,
+  Container,
+  Paper,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
+  Pagination,
+  CircularProgress,
+  Alert
+} from '@mui/material';
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon
+} from '@mui/icons-material';
+import api from '../../api';
+
+const ITEMS_PER_PAGE = 20;
+
+const Inventory = () => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemTypeFilter, setItemTypeFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    category_id: '',
+    total_quantity: '',
+    per_day_rate: 0,
+    per_event_rate: 0,
+    min_stock_level: '',
+    item_type: 'rentable',
+    unit: 'pcs',
+    is_active: true
+  });
+
+  useEffect(() => {
+    fetchItems();
+  }, [page, itemTypeFilter, searchTerm]);
+
+  const fetchItems = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      let endpoint = api.endpoints.inventory.list;
+
+      // Apply filters
+      const params = {
+        page: page,
+        page_size: ITEMS_PER_PAGE
+      };
+
+      if (itemTypeFilter !== 'all') {
+        params.item_type = itemTypeFilter;
+      }
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      const response = await api.get(endpoint, params);
+      console.log('Fetch items response:', response);
+
+      // Handle both wrapped and flat responses
+      if (response.success && response.data) {
+        setItems(response.data.items || []);
+        setTotalItems(response.data.pagination?.total || 0);
+      } else if (Array.isArray(response)) {
+        // Backend returns flat array
+        setItems(response);
+        setTotalItems(response.length);
+      } else if (response.items) {
+        // Backend returns object with items
+        setItems(response.items);
+        setTotalItems(response.total || response.items.length);
+      } else {
+        setError('Failed to load inventory items');
+      }
+    } catch (err) {
+      setError('Failed to connect to server. Please check your connection.');
+      console.error('Inventory error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenDialog = (item = null) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData({
+        name: item.name,
+        category_id: item.category_id || '',
+        total_quantity: item.total_quantity,
+        per_day_rate: item.per_day_rate,
+        per_event_rate: item.per_event_rate,
+        min_stock_level: item.min_stock_level || '',
+        item_type: item.item_type,
+        unit: item.unit || 'pcs',
+        is_active: item.is_active
+      });
+    } else {
+      setEditingItem(null);
+      setFormData({
+        name: '',
+        category_id: '',
+        total_quantity: '',
+        per_day_rate: 0,
+        per_event_rate: 0,
+        min_stock_level: '',
+        item_type: 'rentable',
+        unit: 'pcs',
+        is_active: true
+      });
+    }
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setEditingItem(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const data = {
+        ...formData,
+        total_quantity: parseInt(formData.total_quantity),
+        per_day_rate: parseFloat(formData.per_day_rate),
+        per_event_rate: parseFloat(formData.per_event_rate),
+        min_stock_level: formData.min_stock_level ? parseInt(formData.min_stock_level) : 5,
+        // Convert empty strings to null for optional integer fields
+        category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        location_id: formData.location_id ? parseInt(formData.location_id) : null,
+        // Convert empty strings to null for optional string fields
+        tag_serial: formData.tag_serial || null,
+        description: formData.description || null,
+        supplier: formData.supplier || null,
+        unit: formData.unit || 'pcs'
+      };
+
+      console.log('Submitting item:', data);
+
+      let response;
+      if (editingItem) {
+        response = await api.put(`${api.endpoints.inventory.update(editingItem.id)}`, data);
+      } else {
+        response = await api.post(api.endpoints.inventory.create, data);
+      }
+
+      console.log('Item save response:', response);
+
+      // Handle both wrapped and flat responses
+      if (response.success || response.id) {
+        // Backend returns flat ItemResponse with id
+        handleCloseDialog();
+        fetchItems();
+      } else {
+        setError(response.message || 'Failed to save item');
+      }
+    } catch (err) {
+      setError('Failed to connect to server. Please check your connection.');
+      console.error('Save item error:', err);
+    }
+  };
+
+  const handleDelete = async (itemId) => {
+    if (!window.confirm('Are you sure you want to delete this item?')) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(api.endpoints.inventory.delete(itemId));
+      console.log('Delete response:', response);
+
+      // Handle both wrapped and flat responses
+      if (response.success || response.detail === 'Item deleted successfully') {
+        fetchItems();
+      } else {
+        setError(response.message || 'Failed to delete item');
+      }
+    } catch (err) {
+      setError('Failed to connect to server. Please check your connection.');
+      console.error('Delete item error:', err);
+    }
+  };
+
+  const getTypeColor = (type) => {
+    switch (type) {
+      case 'rentable':
+        return 'success';
+      case 'consumable':
+        return 'warning';
+      case 'tool':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+  return (
+    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <Paper sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h5">
+            Inventory
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              size="small"
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              sx={{ width: 250 }}
+            />
+            <FormControl size="small" sx={{ width: 150 }}>
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={itemTypeFilter}
+                label="Type"
+                onChange={(e) => setItemTypeFilter(e.target.value)}
+              >
+                <MenuItem value="all">All</MenuItem>
+                <MenuItem value="rentable">Rentable</MenuItem>
+                <MenuItem value="consumable">Consumables</MenuItem>
+                <MenuItem value="tool">Tools</MenuItem>
+              </Select>
+            </FormControl>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenDialog()}
+            >
+              Add Item
+            </Button>
+          </Box>
+        </Box>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress size={60} />
+          </Box>
+        ) : (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Name</TableCell>
+                    <TableCell>Type</TableCell>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Total Qty</TableCell>
+                    <TableCell>Available</TableCell>
+                    <TableCell>Rented</TableCell>
+                    <TableCell>Day Rate</TableCell>
+                    <TableCell>Event Rate</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.id} hover>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell>
+                        <Chip label={item.item_type} color={getTypeColor(item.item_type)} size="small" />
+                      </TableCell>
+                      <TableCell>{item.category_name || '-'}</TableCell>
+                      <TableCell>{item.total_quantity}</TableCell>
+                      <TableCell>{item.available_quantity || 0}</TableCell>
+                      <TableCell>{item.rented_quantity || 0}</TableCell>
+                      <TableCell>PKR {item.per_day_rate?.toLocaleString()}</TableCell>
+                      <TableCell>PKR {item.per_event_rate?.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={item.is_active ? 'Active' : 'Inactive'}
+                          color={item.is_active ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="small"
+                          onClick={() => handleOpenDialog(item)}
+                          startIcon={<EditIcon />}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => handleDelete(item.id)}
+                          startIcon={<DeleteIcon />}
+                        >
+                          Delete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            {totalPages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Pagination
+                  count={totalPages}
+                  page={page}
+                  onChange={(e, newPage) => setPage(newPage)}
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </Paper>
+
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+        <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+        <DialogContent>
+          <Box component="form" sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              margin="normal"
+              required
+            />
+            <FormControl fullWidth margin="normal" required>
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={formData.item_type}
+                label="Type"
+                onChange={(e) => setFormData({ ...formData, item_type: e.target.value })}
+              >
+                <MenuItem value="rentable">Rentable</MenuItem>
+                <MenuItem value="consumable">Consumable</MenuItem>
+                <MenuItem value="tool">Tool</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="Category ID"
+              value={formData.category_id}
+              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Total Quantity"
+              type="number"
+              value={formData.total_quantity}
+              onChange={(e) => setFormData({ ...formData, total_quantity: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Per Day Rate (PKR)"
+              type="number"
+              value={formData.per_day_rate}
+              onChange={(e) => setFormData({ ...formData, per_day_rate: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Per Event Rate (PKR)"
+              type="number"
+              value={formData.per_event_rate}
+              onChange={(e) => setFormData({ ...formData, per_event_rate: e.target.value })}
+              margin="normal"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Minimum Stock Level"
+              type="number"
+              value={formData.min_stock_level}
+              onChange={(e) => setFormData({ ...formData, min_stock_level: e.target.value })}
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Unit"
+              value={formData.unit}
+              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              margin="normal"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained">
+            {editingItem ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
+  );
+};
+
+export default Inventory;
