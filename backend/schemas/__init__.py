@@ -253,6 +253,47 @@ class OrderResponse(BaseModel):
 # Invoice Schemas
 # ============================================
 
+class InvoiceItemCreate(BaseModel):
+    """Create invoice item"""
+    item_id: Optional[str] = None
+    item_name: str = Field(..., max_length=200)
+    quantity: int = Field(..., ge=1)
+    days: int = Field(1, ge=1)
+    rate: Decimal = Field(0, ge=0)
+
+class InvoiceCreate(BaseModel):
+    """Create invoice"""
+    order_id: str
+    customer_id: str
+    items: List[InvoiceItemCreate] = Field(..., min_items=1)
+    notes: Optional[str] = None
+
+class InvoiceUpdate(BaseModel):
+    """Update invoice"""
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
+class InvoiceResponse(BaseModel):
+    """Invoice response"""
+    id: str
+    order_id: str
+    customer_id: str
+    customer_name: Optional[str] = None
+    invoice_number: str
+    invoice_date: date
+    due_date: Optional[date] = None
+    subtotal: Decimal
+    tax_amount: Decimal
+    discount_amount: Decimal
+    total_amount: Decimal
+    paid_amount: Decimal
+    balance: Decimal
+    status: str
+    payment_mode: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
 class PaymentCreate(BaseModel):
     """Create payment"""
     amount: Decimal = Field(..., gt=0)
@@ -280,6 +321,20 @@ class QuotationItemCreate(OrderItemCreate):
     """Create quotation item"""
     pass
 
+class QuotationItemResponse(BaseModel):
+    """Quotation item response"""
+    id: str
+    quotation_id: str
+    item_id: Optional[str] = None
+    item_name: str
+    quantity: int
+    rate_per_day: Decimal
+    rate_per_event: Decimal
+    days: int
+    total_amount: Decimal
+    notes: Optional[str] = None
+    created_at: datetime
+
 class QuotationCreate(BaseModel):
     """Create quotation"""
     customer_id: str
@@ -290,6 +345,75 @@ class QuotationCreate(BaseModel):
     items: List[QuotationItemCreate] = Field(..., min_items=1)
     notes: Optional[str] = None
     terms: Optional[str] = None
+
+class QuotationUpdate(BaseModel):
+    """Update quotation"""
+    event_name: Optional[str] = None
+    event_location: Optional[str] = None
+    event_date: Optional[date] = None
+    validity_date: Optional[date] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+
+class QuotationResponse(BaseModel):
+    """Quotation response"""
+    id: str
+    customer_id: str
+    customer_name: Optional[str] = None
+    quotation_number: str
+    event_name: str
+    event_location: str
+    event_date: Optional[date] = None
+    creation_date: date
+    validity_date: Optional[date] = None
+    status: str
+    subtotal: Decimal
+    tax_amount: Decimal
+    discount_amount: Decimal
+    total_amount: Decimal
+    advance_payment: Decimal
+    notes: Optional[str] = None
+    terms: Optional[str] = None
+    items: List[dict] = []
+    created_at: datetime
+    updated_at: datetime
+
+# ============================================
+# Rental Schemas
+# ============================================
+
+class RentalCreate(BaseModel):
+    """Create rental (order-based)"""
+    order_id: str
+    dispatch_date: Optional[date] = None
+    notes: Optional[str] = None
+
+class RentalUpdate(BaseModel):
+    """Update rental"""
+    status: Optional[str] = None
+    return_date: Optional[date] = None
+    notes: Optional[str] = None
+
+class RentalResponse(BaseModel):
+    """Rental response"""
+    id: str
+    order_number: str
+    customer_id: str
+    customer_name: Optional[str] = None
+    event_name: str
+    event_location: str
+    start_date: date
+    end_date: date
+    dispatch_date: Optional[date] = None
+    return_date: Optional[date] = None
+    status: str
+    total_amount: Decimal
+    advance_payment: Decimal
+    balance: Decimal
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
 
 # ============================================
 # Return Schemas
@@ -310,6 +434,18 @@ class ReturnCreate(BaseModel):
     order_id: str
     items: List[ReturnItemCreate]
     notes: Optional[str] = None
+
+class ReturnResponse(BaseModel):
+    """Return response"""
+    id: str
+    order_id: str
+    order_number: str
+    return_date: date
+    status: str
+    notes: Optional[str] = None
+    items: List[dict] = []
+    created_at: datetime
+    updated_at: datetime
 
 # ============================================
 # Ledger Schemas

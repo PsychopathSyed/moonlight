@@ -13,7 +13,9 @@ from database.connection import engine, SessionLocal, Base
 from routers import (
     auth, inventory, customers,
     orders, dashboard, invoices, quotations,
-    payments, rentals, returns, placeholders as other_routers
+    payments, rentals, returns, 
+    expenses, hr, ledger,
+    placeholders as other_routers
 )
 
 # Configure logging
@@ -89,9 +91,13 @@ app.include_router(payments.router, tags=["Payments"])
 app.include_router(rentals.router, tags=["Rentals"])
 app.include_router(returns.router, tags=["Returns"])
 
+# New module routers
+app.include_router(expenses.router, tags=["Expenses"])
+app.include_router(hr.router, tags=["HR"])
+app.include_router(ledger.router, tags=["Ledger"])
+
 # Placeholder routers for remaining modules
 app.include_router(other_routers.router, tags=["Other Modules"])
-# ... etc for other modules
 
 # Root endpoint
 @app.get("/")

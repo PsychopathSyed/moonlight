@@ -17,7 +17,7 @@ const api = {
     };
   },
 
-  // Generic request handler
+  // Generic request handler with proper error handling
   request: async (method, endpoint, data = null, params = {}) => {
     try {
       let url = `${API_BASE_URL}${endpoint}`;
@@ -38,14 +38,33 @@ const api = {
       }
 
       const response = await fetch(url, options);
-      const result = await response.json();
+      
+      // Handle non-JSON responses
+      const contentType = response.headers.get('content-type');
+      let result;
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+      } else {
+        result = { message: await response.text() };
+      }
 
       // Handle 401 Unauthorized - token expired
       if (response.status === 401 && localStorage.getItem(TOKEN_KEY)) {
-        // Try to refresh token
-        await api.refreshToken();
-        // Retry original request
-        return api.request(method, endpoint, data, params);
+        try {
+          // Try to refresh token
+          await api.refreshToken();
+          // Retry original request
+          return api.request(method, endpoint, data, params);
+        } catch (refreshError) {
+          // Refresh failed, logout user
+          api.logout();
+          throw new Error('Session expired. Please login again.');
+        }
+      }
+
+      // Handle HTTP errors
+      if (!response.ok) {
+        throw new Error(result.message || result.detail || `HTTP ${response.status}`);
       }
 
       return result;
@@ -72,13 +91,14 @@ const api = {
 
   // Authentication
   login: async (username, password) => {
-  login: async (username, password) => {
-  login: async (username, password) => {
     const response = await api.post('/api/auth/login', { username, password });
     if (response.access_token) {
       localStorage.setItem(TOKEN_KEY, response.access_token);
       localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token);
-      try { const p = JSON.parse(atob(response.access_token.split('.')[1])); localStorage.setItem('user', JSON.stringify({username: p.sub, role: p.role})); } catch(e) {}
+      try { 
+        const p = JSON.parse(atob(response.access_token.split('.')[1])); 
+        localStorage.setItem('user', JSON.stringify({username: p.sub, role: p.role})); 
+      } catch(e) {}
       return { success: true, data: response };
     }
     return { success: false, message: 'Login failed' };
@@ -195,15 +215,97 @@ const api = {
       upcoming: '/api/dashboard/upcoming',
       overdue: '/api/dashboard/overdue',
       recent: '/api/dashboard/recent'
-      quotations: {
+    },
+    quotations: {
       list: '/api/quotations',
       create: '/api/quotations',
       get: (id) => `/api/quotations/${id}`,
       update: (id) => `/api/quotations/${id}`,
       delete: (id) => `/api/quotations/${id}`
+    },
+    invoices: {
+      list: '/api/invoices',
+      create: '/api/invoices',
+      get: (id) => `/api/invoices/${id}`,
+      update: (id) => `/api/invoices/${id}`,
+      delete: (id) => `/api/invoices/${id}`,
+      payments: (id) => `/api/invoices/${id}/payments`
+    },
+    rentals: {
+      list: '/api/rentals',
+      create: '/api/rentals',
+      get: (id) => `/api/rentals/${id}`,
+      update: (id) => `/api/rentals/${id}`,
+      dispatch: (id) => `/api/rentals/${id}/dispatch`,
+      return: (id) => `/api/rentals/${id}/return`,
+      upcoming: '/api/rentals/upcoming',
+      active: '/api/rentals/active'
+    },
+    returns: {
+      list: '/api/returns',
+      create: '/api/returns',
+      get: (id) => `/api/returns/${id}`,
+      process: (id) => `/api/returns/${id}/process`
+    },
+    ledger: {
+      list: '/api/ledger',
+      customer: (id) => `/api/ledger/customers/${id}`,
+      transactions: (id) => `/api/ledger/customers/${id}/transactions`
+    },
+    expenses: {
+      list: '/api/expenses',
+      create: '/api/expenses',
+      get: (id) => `/api/expenses/${id}`,
+      update: (id) => `/api/expenses/${id}`,
+      delete: (id) => `/api/expenses/${id}`,
+      categories: '/api/expenses/categories'
+    },
+    hr: {
+      employees: '/api/hr/employees',
+      employee: (id) => `/api/hr/employees/${id}`,
+      advances: '/api/hr/advances',
+      salary: '/api/hr/salary',
+      processSalary: '/api/hr/salary/process'
+    },
+    purchase: {
+      vendors: '/api/purchase/vendors',
+      vendor: (id) => `/api/purchase/vendors/${id}`,
+      purchases: '/api/purchase/purchases',
+      purchase: (id) => `/api/purchase/purchases/${id}`
+    },
+    partners: {
+      list: '/api/partners',
+      create: '/api/partners',
+      get: (id) => `/api/partners/${id}`,
+      update: (id) => `/api/partners/${id}`,
+      delete: (id) => `/api/partners/${id}`,
+      rentals: '/api/partners/rentals',
+      payables: '/api/partners/payables'
+    },
+    consumables: {
+      list: '/api/consumables',
+      reorder: '/api/consumables/reorder',
+      usage: '/api/consumables/usage'
+    },
+    reports: {
+      revenue: '/api/reports/revenue',
+      inventory: '/api/reports/inventory',
+      rentals: '/api/reports/rentals',
+      customers: '/api/reports/customers'
+    },
+    notifications: {
+      list: '/api/notifications',
+      markRead: (id) => `/api/notifications/${id}/read`,
+      markAllRead: '/api/notifications/read-all',
+      settings: '/api/notifications/settings'
+    },
+    settings: {
+      all: '/api/settings',
+      get: (key) => `/api/settings/${key}`,
+      update: (key) => `/api/settings/${key}`
     }
+  }
+};
 
 // Export for use in React components
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = api;
-}
+export default api;
