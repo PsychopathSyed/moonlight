@@ -105,7 +105,7 @@ jobs:
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             backend/ \
-            ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/apiha7939/api.haditex.net/public_html/ \
+            ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/openclaw/deployments/event-erp/backend/ \
             --exclude '__pycache__/' \
             --exclude '.env' \
             --exclude 'venv/' \
@@ -122,7 +122,7 @@ jobs:
       - name: Verify backend health
         run: |
           sleep 5
-          curl -f https://api.haditex.net/health || exit 1
+          curl -f http://127.0.0.1:8000/health || exit 1
 
   deploy-frontend:
     name: Deploy Frontend to VPS
@@ -147,7 +147,9 @@ jobs:
           rsync -avz --delete \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             dist/ \
-            ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/haditex.net/public_html/
+            ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }}:/home/openclaw/deployments/event-erp/frontend/ \
+            --exclude 'node_modules/' \
+            --exclude '.cache/'
 
       - name: Verify frontend deployment
         run: |
@@ -166,4 +168,3 @@ jobs:
           else
             echo "❌ Deployment failed!"
             exit 1
-          fi
