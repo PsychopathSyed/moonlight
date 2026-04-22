@@ -66,7 +66,7 @@ class Item(Base, TimestampMixin):
     """
     __tablename__ = 'items'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False, index=True)
     category_id = Column(Integer, ForeignKey('categories.id'))
     description = Column(Text)

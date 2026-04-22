@@ -185,18 +185,20 @@ async def search_items(
     items = db.query(Item).filter(Item.name.ilike(f"%{search}%")).limit(limit).all()
     return SuccessResponse(
         success=True,
-        data=[
-            {
-                "id": str(item.id),
-                "name": item.name,
-                "category_id": item.category_id,
-                "unit": item.unit,
-                "rate_type": "per_day" if item.per_day_rate > 0 else "per_event",
-                "rate": float(item.per_day_rate if item.per_day_rate > 0 else item.per_event_rate),
-                "tag": item.tag
-            }
-            for item in items
-        ]
+        data={
+            "items": [
+                {
+                    "id": str(item.id),
+                    "name": item.name,
+                    "category_id": item.category_id,
+                    "unit": item.unit,
+                    "rate_type": "per_day" if item.per_day_rate > 0 else "per_event",
+                    "rate": float(item.per_day_rate if item.per_day_rate > 0 else item.per_event_rate),
+                    "tag": item.tag
+                }
+                for item in items
+            ]
+        }
     )
 
 @router.get("/categories/search", response_model=SuccessResponse)
