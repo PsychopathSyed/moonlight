@@ -90,35 +90,6 @@ export default function Purchase() {
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f8fafc', minHeight: '100vh' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#1e293b' }}>
-            Purchase Management
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Vendors and purchased items tracking
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={<VendorIcon />}
-            onClick={() => setOpenVendor(true)}
-            sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
-          >
-            Add Vendor
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenItem(true)}
-            sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
-          >
-            Add Purchase
-          </Button>
-        </Box>
-      </Box>
-
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>

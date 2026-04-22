@@ -209,10 +209,6 @@ export default function Customers() {
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom sx={{ mb: 2 }}>
-          Customers
-        </Typography>
-
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
             {error}
@@ -265,12 +261,12 @@ export default function Customers() {
           </Box>
         ) : (
           <>
-            <TableContainer>
+            <TableContainer sx={{ maxHeight: 'calc(100vh - 200px)' }}>
               <Table sx={{
                 '& .MuiTableHead-root': {
                   position: 'sticky',
                   top: 0,
-                  zIndex: 1,
+                  zIndex: 10,
                   backgroundColor: '#f8fafc',
                 },
                 '& .MuiTableCell-head': {

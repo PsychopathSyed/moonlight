@@ -153,12 +153,12 @@ export default function Rentals() {
   return (
     <Box>
 
-      <TableContainer component={Card}>
+      <TableContainer component={Card} sx={{ maxHeight: 'calc(100vh - 200px)' }}>
         <Table sx={{
           '& .MuiTableHead-root': {
             position: 'sticky',
             top: 0,
-            zIndex: 1,
+            zIndex: 10,
             backgroundColor: '#f8fafc',
           },
           '& .MuiTableCell-head': {
