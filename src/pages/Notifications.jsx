@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -43,10 +43,13 @@ import {
   MarkEmailRead as MarkAllIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Notifications() {
+  const { setHeaderActions } = useOutletContext();
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [openSettings, setOpenSettings] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const notifications = [
     { id: 1, type: 'dispatch', title: 'Dispatch Reminder', message: 'ORD-001: Ali Corporation items to dispatch today', date: '2026-04-20 09:00', order: 'ORD-001', status: 'unread' },
@@ -76,6 +79,44 @@ export default function Notifications() {
     { id: 2, item: 'Moving Head Beam', category: 'Lights', current: 2, minimum: 4, unit: 'pcs', percentage: 50 },
     { id: 3, item: 'XLR Connectors', category: 'Tool', current: 8, minimum: 15, unit: 'pcs', percentage: 53 },
   ];
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search notifications..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Type</InputLabel>
+            <Select
+              value={selectedFilter}
+              label="Type"
+              onChange={(e) => setSelectedFilter(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="dispatch">Dispatch</MenuItem>
+              <MenuItem value="return">Returns</MenuItem>
+              <MenuItem value="payment">Payments</MenuItem>
+              <MenuItem value="alert">Alerts</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<MarkAllIcon />}
+            size="small"
+          >
+            Mark All Read
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, selectedFilter, setHeaderActions]);
 
   const getNotificationIcon = (type) => {
     switch (type) {

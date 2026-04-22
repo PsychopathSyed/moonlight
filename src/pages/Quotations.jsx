@@ -4,6 +4,7 @@ import {
   Button,
   Card,
   CardContent,
+  Container,
   Table,
   TableBody,
   TableCell,
@@ -27,6 +28,8 @@ import {
   FormControl,
   InputLabel,
   Select,
+  InputAdornment,
+  Divider,
   Tooltip
 } from '@mui/material';
 import {
@@ -41,12 +44,15 @@ import {
   Money as MoneyIcon,
   Event as EventIcon,
   LocationOn as LocationIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import api from '../../api';
+import { useOutletContext } from 'react-router-dom';
 
 const ITEMS_PER_PAGE = 20;
 
 export default function Quotations() {
+  const { setHeaderActions } = useOutletContext();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -69,6 +75,50 @@ export default function Quotations() {
     terms: '',
     items: [{ item_name: '', quantity: 1, rate_per_day: 0, rate_per_event: 0, days: 1 }]
   });
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search quotations..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              label="Status"
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="draft">Draft</MenuItem>
+              <MenuItem value="sent">Sent</MenuItem>
+              <MenuItem value="accepted">Accepted</MenuItem>
+              <MenuItem value="rejected">Rejected</MenuItem>
+              <MenuItem value="cancelled">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditingQuotation(null);
+              handleAddItem();
+              setOpenDialog(true);
+            }}
+            size="small"
+          >
+            New Quotation
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, statusFilter, setHeaderActions]);
 
   useEffect(() => {
     fetchQuotations();
@@ -286,61 +336,12 @@ export default function Quotations() {
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom sx={{ mb: 2 }}>
-          Quotations
-        </Typography>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
             {error}
           </Alert>
         )}
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <TextField
-              placeholder="Search quotations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
-          </Box>
-
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              label="Status"
-            >
-              <MenuItem value="all">All</MenuItem>
-              <MenuItem value="draft">Draft</MenuItem>
-              <MenuItem value="sent">Sent</MenuItem>
-              <MenuItem value="accepted">Accepted</MenuItem>
-              <MenuItem value="rejected">Rejected</MenuItem>
-              <MenuItem value="cancelled">Cancelled</MenuItem>
-            </Select>
-          </FormControl>
-
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setEditingQuotation(null);
-              handleAddItem();
-              setOpenDialog(true);
-            }}
-          >
-            New Quotation
-          </Button>
-        </Box>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -349,7 +350,19 @@ export default function Quotations() {
         ) : (
           <>
             <TableContainer>
-              <Table>
+              <Table sx={{
+                '& .MuiTableHead-root': {
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
+                  backgroundColor: '#f8fafc',
+                },
+                '& .MuiTableCell-head': {
+                  backgroundColor: '#f1f5f9',
+                  fontWeight: 600,
+                  borderBottom: '2px solid #e2e8f0',
+                },
+              }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Quote #</TableCell>
@@ -642,7 +655,7 @@ export default function Quotations() {
                         label="Notes"
                         value={item.notes || ''}
                         onChange={(e) => {
-                          const newItems = [...formDataItems];
+                          const newItems = [...formData.items];
                           newItems[index].notes = e.target.value;
                           setFormData({ ...formData, items: newItems });
                         }}

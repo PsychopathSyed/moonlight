@@ -31,10 +31,12 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import api from '../../api';
+import { useOutletContext } from 'react-router-dom';
 
 const ITEMS_PER_PAGE = 20;
 
 const Inventory = () => {
+  const { setHeaderActions } = useOutletContext();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -55,6 +57,44 @@ const Inventory = () => {
     unit: 'pcs',
     is_active: true
   });
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Type</InputLabel>
+            <Select
+              value={itemTypeFilter}
+              label="Type"
+              onChange={(e) => setItemTypeFilter(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="rentable">Rentable</MenuItem>
+              <MenuItem value="consumable">Consumables</MenuItem>
+              <MenuItem value="tool">Tools</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            size="small"
+          >
+            Add Item
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, itemTypeFilter, setHeaderActions]);
 
   useEffect(() => {
     fetchItems();
@@ -228,40 +268,6 @@ const Inventory = () => {
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h5">
-            Inventory
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              size="small"
-              placeholder="Search items..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ width: 250 }}
-            />
-            <FormControl size="small" sx={{ width: 150 }}>
-              <InputLabel>Type</InputLabel>
-              <Select
-                value={itemTypeFilter}
-                label="Type"
-                onChange={(e) => setItemTypeFilter(e.target.value)}
-              >
-                <MenuItem value="all">All</MenuItem>
-                <MenuItem value="rentable">Rentable</MenuItem>
-                <MenuItem value="consumable">Consumables</MenuItem>
-                <MenuItem value="tool">Tools</MenuItem>
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => handleOpenDialog()}
-            >
-              Add Item
-            </Button>
-          </Box>
-        </Box>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -276,7 +282,19 @@ const Inventory = () => {
         ) : (
           <>
             <TableContainer>
-              <Table>
+              <Table sx={{
+                '& .MuiTableHead-root': {
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
+                  backgroundColor: '#f8fafc',
+                },
+                '& .MuiTableCell-head': {
+                  backgroundColor: '#f1f5f9',
+                  fontWeight: 600,
+                  borderBottom: '2px solid #e2e8f0',
+                },
+              }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Name</TableCell>

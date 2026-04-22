@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -35,11 +35,14 @@ import {
   AttachMoney as MoneyIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Purchase() {
+  const { setHeaderActions } = useOutletContext();
   const [openVendor, setOpenVendor] = useState(false);
   const [openItem, setOpenItem] = useState(false);
   const [selectedTab, setSelectedTab] = useState('vendors');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const vendors = [
     { id: 1, name: 'Sound Systems Ltd', phone: '+92-300-1234567', date: '2026-01-15', items: 12, total: 'PKR 450,000' },
@@ -54,6 +57,31 @@ export default function Purchase() {
     { id: 4, vendor: 'Sound Systems Ltd', item: 'Subwoofer 18"', category: 'Speakers', qty: 2, price: 20000, total: 40000, date: '2026-04-08' },
     { id: 5, vendor: 'Lighting Pro', item: 'Moving Head Beam', category: 'Lights', qty: 4, price: 18000, total: 72000, date: '2026-04-05' },
   ];
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search purchases..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenItem(true)}
+            size="small"
+          >
+            Add Purchase
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, setHeaderActions]);
 
   const categories = ['Speakers', 'Lights', 'DJ Equipment', 'Screens', 'Cables', 'Microphones', 'Stands', 'Other'];
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -38,11 +38,14 @@ import {
   PendingActions as PendingIcon,
   CheckCircle as PaidIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Partners() {
+  const { setHeaderActions } = useOutletContext();
   const [openPartner, setOpenPartner] = useState(false);
   const [openRentIn, setOpenRentIn] = useState(false);
   const [selectedTab, setSelectedTab] = useState('partners');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const partners = [
     { id: 1, name: 'Event Gear Rentals', phone: '+92-300-1112223', items: 25, rate: '15%', balance: 'PKR 45,000', status: 'active' },
@@ -75,6 +78,31 @@ export default function Partners() {
       default: return { bg: '#f1f5f9', text: '#475569', icon: <PendingIcon /> };
     }
   };
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search partners..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenPartner(true)}
+            size="small"
+          >
+            Add Partner
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, setHeaderActions]);
 
   const totalPayables = payables.reduce((sum, p) => sum + p.balance, 0);
   const totalPaid = payables.reduce((sum, p) => sum + p.paid, 0);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -36,11 +36,15 @@ import {
   Work as RoleIcon,
   CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function HR() {
+  const { setHeaderActions } = useOutletContext();
   const [openEmployee, setOpenEmployee] = useState(false);
   const [openAdvance, setOpenAdvance] = useState(false);
   const [openProcessSalary, setOpenProcessSalary] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const employees = [
     { id: 1, name: 'Ahmed Khan', role: 'Technician', phone: '+92-300-1112233', salary: 45000, joinsDate: '2023-06-15', status: 'active' },
@@ -64,6 +68,43 @@ export default function HR() {
     { id: 3, month: 'Apr-2026', employee: 'Ali Hassan', basic: 55000, advance: 10000, incentives: 3000, deductions: 10000, netSalary: 48000, status: 'pending', ref: 'SLP-003' },
     { id: 4, month: 'Mar-2026', employee: 'Ahmed Khan', basic: 45000, advance: 5000, incentives: 0, deductions: 5000, netSalary: 40000, status: 'processed', ref: 'SLP-001' },
   ];
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search employees..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="inactive">Inactive</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenEmployee(true)}
+            size="small"
+          >
+            Add Employee
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, statusFilter, setHeaderActions]);
 
   const totalSalary = employees.filter(e => e.status === 'active').reduce((sum, e) => sum + e.salary, 0);
   const totalAdvances = advances.filter(a => !a.deducted).reduce((sum, a) => sum + a.amount, 0);

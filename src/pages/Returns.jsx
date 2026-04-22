@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -38,10 +38,14 @@ import {
   Visibility as ViewIcon,
   LocalShipping as DispatchIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Returns() {
+  const { setHeaderActions } = useOutletContext();
   const [openTally, setOpenTally] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const returns = [
     { id: 1, orderId: 'ORD-001', customer: 'Ali Corporation', event: 'Corporate Event', date: '2026-04-20', status: 'pending' },
@@ -67,6 +71,43 @@ export default function Returns() {
     { id: 2, orderId: 'ORD-001', item: 'Speaker Cable', damage: 'Cut wire', qty: 1, responsibility: 'Internal', recovery: '-', status: 'write-off' },
     { id: 3, orderId: 'ORD-003', item: 'Microphone Stand', damage: 'Broken clip', qty: 1, responsibility: 'Internal', recovery: '-', status: 'repaired' },
   ];
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search returns..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<ReturnIcon />}
+            onClick={() => setOpenTally(true)}
+            size="small"
+          >
+            New Return
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, statusFilter, setHeaderActions]);
 
   const getConditionColor = (condition) => {
     switch (condition) {

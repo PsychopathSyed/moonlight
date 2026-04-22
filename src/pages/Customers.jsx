@@ -35,10 +35,12 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import api from '../../api';
+import { useOutletContext } from 'react-router-dom';
 
 const ITEMS_PER_PAGE = 20;
 
 export default function Customers() {
+  const { setHeaderActions } = useOutletContext();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,6 +62,31 @@ export default function Customers() {
     country: '',
     cnic: ''
   });
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search customers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            size="small"
+          >
+            Add Customer
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, setHeaderActions]);
 
   useEffect(() => {
     fetchCustomers();
@@ -239,7 +266,19 @@ export default function Customers() {
         ) : (
           <>
             <TableContainer>
-              <Table>
+              <Table sx={{
+                '& .MuiTableHead-root': {
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
+                  backgroundColor: '#f8fafc',
+                },
+                '& .MuiTableCell-head': {
+                  backgroundColor: '#f1f5f9',
+                  fontWeight: 600,
+                  borderBottom: '2px solid #e2e8f0',
+                },
+              }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>Company</TableCell>

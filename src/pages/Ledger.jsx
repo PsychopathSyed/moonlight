@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -33,11 +33,14 @@ import {
   FilterList as FilterIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Ledger() {
+  const { setHeaderActions } = useOutletContext();
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [openStatement, setOpenStatement] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const customers = [
     { id: 1, name: 'Ali Corporation', totalInvoiced: 150000, paid: 120000, outstanding: 30000, lastPayment: '2026-04-15', status: 'partial' },
@@ -75,6 +78,44 @@ export default function Ledger() {
       default: return { bg: '#f1f5f9', text: '#475569' };
     }
   };
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search ledger..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Period</InputLabel>
+            <Select
+              value={selectedPeriod}
+              label="Period"
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="this_month">This Month</MenuItem>
+              <MenuItem value="last_month">Last Month</MenuItem>
+              <MenuItem value="this_quarter">This Quarter</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<ReceiptIcon />}
+            onClick={() => setOpenStatement(true)}
+            size="small"
+          >
+            Generate Statement
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, selectedPeriod, setHeaderActions]);
 
   const totalOutstanding = customers.reduce((sum, c) => sum + c.outstanding, 0);
   const totalInvoiced = customers.reduce((sum, c) => sum + c.totalInvoiced, 0);

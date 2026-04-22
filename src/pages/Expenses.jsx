@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -38,11 +38,14 @@ import {
   CalendarToday as CalendarIcon,
   Person as EmployeeIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Expenses() {
+  const { setHeaderActions } = useOutletContext();
   const [openExpense, setOpenExpense] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const expenses = [
     { id: 1, date: '2026-04-20', category: 'Transport', type: 'daily', description: 'Fuel for delivery van', amount: 5000, employee: null, isDeductible: false },
@@ -70,6 +73,49 @@ export default function Expenses() {
       default: return <MiscIcon />;
     }
   };
+
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search expenses..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Category</InputLabel>
+            <Select
+              value={selectedCategory}
+              label="Category"
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="Transport">Transport</MenuItem>
+              <MenuItem value="Food">Food</MenuItem>
+              <MenuItem value="Electricity">Electricity</MenuItem>
+              <MenuItem value="Rent">Rent</MenuItem>
+              <MenuItem value="Internet">Internet</MenuItem>
+              <MenuItem value="Mobile">Mobile</MenuItem>
+              <MenuItem value="Package">Package</MenuItem>
+              <MenuItem value="Misc">Misc</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenExpense(true)}
+            size="small"
+          >
+            Add Expense
+          </Button>
+        </>
+      );
+    }
+  }, [searchTerm, selectedCategory, setHeaderActions]);
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const dailyExpenses = expenses.filter(e => e.type === 'daily').reduce((sum, e) => sum + e.amount, 0);

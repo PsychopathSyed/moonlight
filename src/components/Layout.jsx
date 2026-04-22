@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AppBar,
   Box,
@@ -14,6 +14,7 @@ import {
   useMediaQuery,
   useTheme,
   Tooltip,
+  Avatar,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -42,11 +43,50 @@ export default function Layout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userName, setUserName] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+  const [headerActions, setHeaderActions] = useState(null);
+
+  useEffect(() => {
+    // Get user data from localStorage
+    const user = localStorage.getItem('user');
+    if (user !== null && user !== undefined) {
+      try {
+        const userData = JSON.parse(user);
+        setUserName(userData.username || 'User');
+      } catch (e) {
+        setUserName('User');
+      }
+    }
+  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  // Get current page title based on route
+  const getPageTitle = () => {
+    const path = location.pathname;
+    const menuItems = [
+      { text: 'Dashboard', path: '/dashboard' },
+      { text: 'Inventory', path: '/inventory' },
+      { text: 'Rentals', path: '/rentals' },
+      { text: 'Customers', path: '/customers' },
+      { text: 'Quotations', path: '/quotations' },
+      { text: 'Invoices', path: '/invoices' },
+      { text: 'Purchase', path: '/purchase' },
+      { text: 'Partners', path: '/partners' },
+      { text: 'Returns', path: '/returns' },
+      { text: 'Ledger', path: '/ledger' },
+      { text: 'Expenses', path: '/expenses' },
+      { text: 'HR & Salary', path: '/hr' },
+      { text: 'Notifications', path: '/notifications' },
+      { text: 'Reports', path: '/reports' },
+      { text: 'Settings', path: '/settings' },
+    ];
+    const currentPage = menuItems.find(item => item.path === path);
+    return currentPage ? currentPage.text : 'Dashboard';
   };
 
   const menuItems = [
@@ -78,10 +118,36 @@ export default function Layout() {
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
         py: 2,
+        minHeight: 64,
       }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#fff' }} noWrap component="div">
-          Event ERP
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Avatar sx={{
+            width: 36,
+            height: 36,
+            bgcolor: 'white',
+            color: '#6366f1',
+            fontWeight: 600,
+            fontSize: 14
+          }}>
+            {userName.charAt(0).toUpperCase()}
+          </Avatar>
+          <Box>
+            <Typography variant="subtitle1" sx={{
+              fontWeight: 600,
+              color: '#fff',
+              fontSize: '1.1rem',
+              lineHeight: 1.2
+            }} noWrap>
+              {userName}
+            </Typography>
+            <Typography variant="caption" sx={{
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: '0.75rem'
+            }}>
+              Welcome back!
+            </Typography>
+          </Box>
+        </Box>
       </Toolbar>
       <List sx={{ flex: 1, px: 2 }}>
         {menuItems.map((item) => (
@@ -144,17 +210,21 @@ export default function Layout() {
             <MenuIcon sx={{ color: '#6366f1' }} />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, color: '#1e293b', fontWeight: 600 }}>
-            Event Management ERP
+            {getPageTitle()}
           </Typography>
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, alignItems: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Admin
-            </Typography>
-            <Tooltip title="Logout">
-              <IconButton onClick={handleLogout} size="small">
-                <LogoutIcon sx={{ fontSize: 20, color: '#64748b' }} />
-              </IconButton>
-            </Tooltip>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {headerActions && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {headerActions}
+              </Box>
+            )}
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 2, alignItems: 'center' }}>
+              <Tooltip title="Logout">
+                <IconButton onClick={handleLogout} size="small">
+                  <LogoutIcon sx={{ fontSize: 20, color: '#64748b' }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
         </Toolbar>
       </AppBar>
@@ -203,7 +273,7 @@ export default function Layout() {
           minHeight: '100vh',
         }}
       >
-        <Outlet />
+        <Outlet context={{ setHeaderActions }} />
       </Box>
     </Box>
   );

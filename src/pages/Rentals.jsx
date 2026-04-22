@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -31,10 +31,13 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Rentals() {
+  const { setHeaderActions } = useOutletContext();
   const [open, setOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const rentals = [
     {
@@ -99,58 +102,71 @@ export default function Rentals() {
     }
   };
 
-  const filteredRentals = filterStatus === 'all'
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search rentals..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={filterStatus}
+              label="Status"
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="pending">Pending</MenuItem>
+              <MenuItem value="returned">Returned</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpen(true)}
+            size="small"
+          >
+            New Rental
+          </Button>
+        </>
+      );
+    }
+  }, [filterStatus, searchTerm, setHeaderActions]);
+
+  const filteredRentals = searchTerm
+    ? rentals.filter(r => 
+        r.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.items.toLowerCase().includes(searchTerm.toLowerCase())
+      ).filter(r => filterStatus === 'all' ? true : r.status === filterStatus)
+    : filterStatus === 'all'
     ? rentals
     : rentals.filter(r => r.status === filterStatus);
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#1e293b' }}>
-            Rentals & Bookings
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage event rentals, checkouts, and returns
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpen(true)}
-          sx={{
-            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
-            },
-          }}
-        >
-          New Rental
-        </Button>
-      </Box>
-
-      {/* Status Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-        {['all', 'active', 'pending', 'returned', 'overdue'].map((status) => (
-          <Chip
-            key={status}
-            label={status.charAt(0).toUpperCase() + status.slice(1)}
-            onClick={() => setFilterStatus(status)}
-            variant={filterStatus === status ? 'filled' : 'outlined'}
-            sx={{
-              cursor: 'pointer',
-              fontWeight: 500,
-              ...(filterStatus === status && {
-                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                color: '#fff',
-              }),
-            }}
-          />
-        ))}
-      </Box>
 
       <TableContainer component={Card}>
-        <Table>
+        <Table sx={{
+          '& .MuiTableHead-root': {
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            backgroundColor: '#f8fafc',
+          },
+          '& .MuiTableCell-head': {
+            backgroundColor: '#f1f5f9',
+            fontWeight: 600,
+            borderBottom: '2px solid #e2e8f0',
+          },
+        }}>
           <TableHead>
             <TableRow>
               <TableCell>Customer</TableCell>

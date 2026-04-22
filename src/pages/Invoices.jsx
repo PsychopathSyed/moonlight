@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -22,6 +22,10 @@ import {
   LinearProgress,
   InputAdornment,
   Avatar,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,14 +37,17 @@ import {
   Receipt as ReceiptIcon,
   Check as CheckIcon,
 } from '@mui/icons-material';
+import { useOutletContext } from 'react-router-dom';
 
 export default function Invoices() {
+  const { setHeaderActions } = useOutletContext();
   const [open, setOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const invoices = [
     {
-      id: 1,
+      id:1,
       invoiceNumber: 'INV-2026-001',
       customer: 'Ali Corporation',
       quotationId: 1,
@@ -116,6 +123,45 @@ export default function Invoices() {
     },
   ];
 
+  useEffect(() => {
+    // Set header actions
+    if (setHeaderActions) {
+      setHeaderActions(
+        <>
+          <TextField
+            size="small"
+            placeholder="Search invoices..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ width: 250 }}
+          />
+          <FormControl size="small" sx={{ width: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={filterStatus}
+              label="Status"
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="paid">Paid</MenuItem>
+              <MenuItem value="partial">Partial</MenuItem>
+              <MenuItem value="unpaid">Unpaid</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpen(true)}
+            size="small"
+          >
+            New Invoice
+          </Button>
+        </>
+      );
+    }
+  }, [filterStatus, searchTerm, setHeaderActions]);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'paid': return { bg: '#dcfce7', text: '#166534', progress: 100 };
@@ -132,56 +178,17 @@ export default function Invoices() {
     return totalNum > 0 ? Math.round((paidNum / totalNum) * 100) : 0;
   };
 
-  const filteredInvoices = filterStatus === 'all'
+  const filteredInvoices = searchTerm
+    ? invoices.filter(inv => 
+        inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        inv.customer.toLowerCase().includes(searchTerm.toLowerCase())
+      ).filter(inv => filterStatus === 'all' ? true : inv.status === filterStatus)
+    : filterStatus === 'all'
     ? invoices
-    : invoices.filter(i => i.status === filterStatus);
+    : invoices.filter(inv => inv.status === filterStatus);
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
-          <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#1e293b' }}>
-            Invoices & Payments
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Track invoices, payments, and outstanding balances
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpen(true)}
-          sx={{
-            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
-            },
-          }}
-        >
-          Create Invoice
-        </Button>
-      </Box>
-
-      {/* Status Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        {['all', 'paid', 'partial', 'unpaid', 'overdue'].map((status) => (
-          <Chip
-            key={status}
-            label={status.charAt(0).toUpperCase() + status.slice(1)}
-            onClick={() => setFilterStatus(status)}
-            variant={filterStatus === status ? 'filled' : 'outlined'}
-            sx={{
-              cursor: 'pointer',
-              fontWeight: 500,
-              ...(filterStatus === status && {
-                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                color: '#fff',
-              }),
-            }}
-          />
-        ))}
-      </Box>
-
       <Grid container spacing={3}>
         {filteredInvoices.map((invoice) => (
           <Grid item xs={12} md={6} lg={4} key={invoice.id}>
