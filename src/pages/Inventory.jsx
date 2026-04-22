@@ -23,7 +23,13 @@ import {
   Select,
   Pagination,
   CircularProgress,
-  Alert
+  Alert,
+  Autocomplete,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormLabel,
+  Box as MuiBox
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -46,17 +52,26 @@ const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [searchingName, setSearchingName] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [nameSuggestions, setNameSuggestions] = useState([]);
+  const [categorySuggestions, setCategorySuggestions] = useState([]);
+  const [tagSuggestions, setTagSuggestions] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     category_id: '',
     total_quantity: '',
-    per_day_rate: 0,
-    per_event_rate: 0,
     min_stock_level: '',
     item_type: 'rentable',
     unit: 'pcs',
-    is_active: true
+    is_active: true,
+    tag: '',
+    rate_type: 'per_day',
+    rate: 0,
+    per_day_rate: 0,
+    per_event_rate: 0
   });
+  const [rateType, setRateType] = useState('per_day');
 
   useEffect(() => {
     // Set header actions
@@ -147,19 +162,57 @@ const Inventory = () => {
     }
   };
 
+  const fetchNameSuggestions = async (search) => {
+    try {
+      const response = await api.get('/api/inventory/search', { search, limit: 10 });
+      if (response.success && response.data) {
+        setNameSuggestions(response.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching name suggestions:', err);
+    }
+  };
+
+  const fetchCategorySuggestions = async (search) => {
+    try {
+      const response = await api.get('/api/inventory/categories/search', { search, limit: 10 });
+      if (response.success && response.data) {
+        setCategorySuggestions(response.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching category suggestions:', err);
+    }
+  };
+
+  const fetchTagSuggestions = async (search) => {
+    try {
+      const response = await api.get('/api/inventory/tags/search', { search, limit: 10 });
+      if (response.success && response.data) {
+        setTagSuggestions(response.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching tag suggestions:', err);
+    }
+  };
+
   const handleOpenDialog = (item = null) => {
     if (item) {
       setEditingItem(item);
+      // Determine rate type based on which rate is set
+      const rateType = item.per_day_rate > 0 ? 'per_day' : (item.per_event_rate > 0 ? 'per_event' : 'per_day');
       setFormData({
         name: item.name,
         category_id: item.category_id || '',
         total_quantity: item.total_quantity,
-        per_day_rate: item.per_day_rate,
-        per_event_rate: item.per_event_rate,
+        per_day_rate: item.per_day_rate || 0,
+        per_event_rate: item.per_event_rate || 0,
         min_stock_level: item.min_stock_level || '',
         item_type: item.item_type,
         unit: item.unit || 'pcs',
-        is_active: item.is_active
+        is_active: item.is_active,
+        tag: item.tag || '',
+        rate_type: rateType,
+        rate: rateType === 'per_day' ? (item.per_day_rate || 0) : (item.per_event_rate || 0)
       });
     } else {
       setEditingItem(null);
@@ -172,7 +225,10 @@ const Inventory = () => {
         min_stock_level: '',
         item_type: 'rentable',
         unit: 'pcs',
-        is_active: true
+        is_active: true,
+        tag: '',
+        rate_type: 'per_day',
+        rate: 0
       });
     }
     setOpenDialog(true);
@@ -191,17 +247,19 @@ const Inventory = () => {
       const data = {
         ...formData,
         total_quantity: parseInt(formData.total_quantity),
-        per_day_rate: parseFloat(formData.per_day_rate),
-        per_event_rate: parseFloat(formData.per_event_rate),
+        // Set rates based on rate_type
+        per_day_rate: formData.rate_type === 'per_day' ? parseFloat(formData.rate) : parseFloat(formData.per_day_rate) || 0,
+        per_event_rate: formData.rate_type === 'per_event' ? parseFloat(formData.rate) : parseFloat(formData.per_event_rate) || 0,
         min_stock_level: formData.min_stock_level ? parseInt(formData.min_stock_level) : 5,
         // Convert empty strings to null for optional integer fields
-        category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        category_id: formData.category_id ? (typeof formData.category_id === 'string' ? null : parseInt(formData.category_id)) : null,
         location_id: formData.location_id ? parseInt(formData.location_id) : null,
         // Convert empty strings to null for optional string fields
         tag_serial: formData.tag_serial || null,
         description: formData.description || null,
         supplier: formData.supplier || null,
-        unit: formData.unit || 'pcs'
+        unit: formData.unit || 'pcs',
+        tag: formData.tag || null
       };
 
       console.log('Submitting item:', data);
@@ -369,14 +427,88 @@ const Inventory = () => {
         <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
         <DialogContent>
           <Box component="form" sx={{ mt: 2 }}>
-            <TextField
+            <Autocomplete
               fullWidth
-              label="Name"
+              freeSolo
+              options={nameSuggestions}
+              getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              margin="normal"
-              required
+              onInputChange={(event, newValue) => {
+                setFormData({ ...formData, name: newValue });
+                // Fetch suggestions as user types
+                if (newValue && newValue.length > 2) {
+                  fetchNameSuggestions(newValue);
+                }
+              }}
+              onChange={(event, newValue) => {
+                if (typeof newValue === 'object' && newValue) {
+                  // User selected existing item
+                  setFormData({
+                    ...formData,
+                    name: newValue.name,
+                    category_id: newValue.category_id || '',
+                    unit: newValue.unit || 'pcs',
+                    rate_type: newValue.rate_type || 'per_day',
+                    rate: newValue.rate || 0,
+                    tag: newValue.tag || ''
+                  });
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Item Name"
+                  margin="normal"
+                  required
+                  helperText="Search existing items or enter new name"
+                />
+              )}
             />
+            
+            <Autocomplete
+              fullWidth
+              freeSolo
+              options={categorySuggestions}
+              getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
+              value={formData.category_id}
+              onInputChange={(event, newValue) => {
+                setFormData({ ...formData, category_id: newValue });
+                if (newValue && newValue.length > 2) {
+                  fetchCategorySuggestions(newValue);
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Category"
+                  margin="normal"
+                  helperText="Search existing categories or enter new category"
+                />
+              )}
+            />
+
+            <Autocomplete
+              fullWidth
+              freeSolo
+              options={tagSuggestions}
+              getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
+              value={formData.tag}
+              onInputChange={(event, newValue) => {
+                setFormData({ ...formData, tag: newValue });
+                if (newValue && newValue.length > 2) {
+                  fetchTagSuggestions(newValue);
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Tag"
+                  margin="normal"
+                  helperText="Search existing tags or enter new tag"
+                />
+              )}
+            />
+
             <FormControl fullWidth margin="normal" required>
               <InputLabel>Type</InputLabel>
               <Select
@@ -389,13 +521,7 @@ const Inventory = () => {
                 <MenuItem value="tool">Tool</MenuItem>
               </Select>
             </FormControl>
-            <TextField
-              fullWidth
-              label="Category ID"
-              value={formData.category_id}
-              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-              margin="normal"
-            />
+
             <TextField
               fullWidth
               label="Total Quantity"
@@ -405,24 +531,38 @@ const Inventory = () => {
               margin="normal"
               required
             />
+
+            <FormControl component="fieldset" sx={{ mt: 2 }}>
+              <FormLabel component="legend">Rate Type</FormLabel>
+              <RadioGroup
+                row
+                value={formData.rate_type}
+                onChange={(e) => setFormData({ ...formData, rate_type: e.target.value })}
+              >
+                <FormControlLabel value="per_day" control={<Radio />} label="Per Day" />
+                <FormControlLabel value="per_event" control={<Radio />} label="Per Event" />
+              </RadioGroup>
+            </FormControl>
+
             <TextField
               fullWidth
-              label="Per Day Rate (PKR)"
+              label={`${formData.rate_type === 'per_day' ? 'Per Day' : 'Per Event'} Rate (PKR)`}
               type="number"
-              value={formData.per_day_rate}
-              onChange={(e) => setFormData({ ...formData, per_day_rate: e.target.value })}
+              value={formData.rate}
+              onChange={(e) => {
+                const rate = parseFloat(e.target.value) || 0;
+                setFormData({ ...formData, rate });
+                // Update both rate fields based on selected type
+                if (formData.rate_type === 'per_day') {
+                  setFormData({ ...formData, rate, per_day_rate: rate, per_event_rate: 0 });
+                } else {
+                  setFormData({ ...formData, rate, per_day_rate: 0, per_event_rate: rate });
+                }
+              }}
               margin="normal"
               required
             />
-            <TextField
-              fullWidth
-              label="Per Event Rate (PKR)"
-              type="number"
-              value={formData.per_event_rate}
-              onChange={(e) => setFormData({ ...formData, per_event_rate: e.target.value })}
-              margin="normal"
-              required
-            />
+
             <TextField
               fullWidth
               label="Minimum Stock Level"
@@ -431,13 +571,25 @@ const Inventory = () => {
               onChange={(e) => setFormData({ ...formData, min_stock_level: e.target.value })}
               margin="normal"
             />
-            <TextField
-              fullWidth
-              label="Unit"
-              value={formData.unit}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-              margin="normal"
-            />
+
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Unit</InputLabel>
+              <Select
+                value={formData.unit}
+                label="Unit"
+                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+              >
+                <MenuItem value="pcs">Pieces (pcs)</MenuItem>
+                <MenuItem value="kg">Kilograms (kg)</MenuItem>
+                <MenuItem value="packet">Packet</MenuItem>
+                <MenuItem value="feet">Feet</MenuItem>
+                <MenuItem value="meter">Meter</MenuItem>
+                <MenuItem value="liter">Liter</MenuItem>
+                <MenuItem value="box">Box</MenuItem>
+                <MenuItem value="set">Set</MenuItem>
+                <MenuItem value="pair">Pair</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
         <DialogActions>

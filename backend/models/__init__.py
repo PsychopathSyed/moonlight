@@ -75,6 +75,7 @@ class Item(Base, TimestampMixin):
     rented_quantity = Column(Integer, default=0, nullable=False)
     location_id = Column(Integer, ForeignKey('locations.id'))
     tag_serial = Column(String(100))
+    tag = Column(String(100))
     per_day_rate = Column(DECIMAL(10, 2), default=0, nullable=False)
     per_event_rate = Column(DECIMAL(10, 2), default=0, nullable=False)
     min_stock_level = Column(Integer, default=5, nullable=False)

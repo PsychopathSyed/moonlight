@@ -175,6 +175,68 @@ async def list_items(
         }
     )
 
+@router.get("/search", response_model=SuccessResponse)
+async def search_items(
+    search: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Search items for autocomplete"""
+    items = db.query(Item).filter(Item.name.ilike(f"%{search}%")).limit(limit).all()
+    return SuccessResponse(
+        success=True,
+        data=[
+            {
+                "id": str(item.id),
+                "name": item.name,
+                "category_id": item.category_id,
+                "unit": item.unit,
+                "rate_type": "per_day" if item.per_day_rate > 0 else "per_event",
+                "rate": float(item.per_day_rate if item.per_day_rate > 0 else item.per_event_rate),
+                "tag": item.tag
+            }
+            for item in items
+        ]
+    )
+
+@router.get("/categories/search", response_model=SuccessResponse)
+async def search_categories(
+    search: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Search categories for autocomplete"""
+    categories = db.query(Category).filter(Category.name.ilike(f"%{search}%")).limit(limit).all()
+    return SuccessResponse(
+        success=True,
+        data=[
+            {
+                "id": cat.id,
+                "name": cat.name
+            }
+            for cat in categories
+        ]
+    )
+
+@router.get("/tags/search", response_model=SuccessResponse)
+async def search_tags(
+    search: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Search tags for autocomplete"""
+    # Get unique tags that match search
+    items = db.query(Item.tag).filter(Item.tag.ilike(f"%{search}%"), Item.tag.isnot(None)).distinct().limit(limit).all()
+    return SuccessResponse(
+        success=True,
+        data=[
+            {
+                "name": tag[0]
+            }
+            for tag in items
+        ]
+    )
+
 @router.post("", response_model=ItemResponse)
 async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
     """Create a new item"""

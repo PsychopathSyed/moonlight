@@ -140,6 +140,7 @@ class ItemCreate(BaseModel):
     total_quantity: int = Field(..., ge=0)
     location_id: Optional[int] = None
     tag_serial: Optional[str] = Field(None, max_length=100)
+    tag: Optional[str] = Field(None, max_length=100)
     per_day_rate: Decimal = Field(0, ge=0)
     per_event_rate: Decimal = Field(0, ge=0)
     min_stock_level: int = Field(5, ge=0)
@@ -166,6 +167,7 @@ class ItemResponse(BaseModel):
     location_id: Optional[int] = None
     location_name: Optional[str] = None
     tag_serial: Optional[str] = None
+    tag: Optional[str] = None
     per_day_rate: Decimal
     per_event_rate: Decimal
     min_stock_level: int
