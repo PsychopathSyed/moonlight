@@ -39,7 +39,7 @@ class Category(Base):
     """
     __tablename__ = 'categories'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), unique=True, nullable=False)
     description = Column(Text)
     created_at = Column(DateTime, default=func.now(), nullable=False)
@@ -52,7 +52,7 @@ class Location(Base):
     """
     __tablename__ = 'locations'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), unique=True, nullable=False)
     type = Column(String(20), nullable=False)
     description = Column(Text)

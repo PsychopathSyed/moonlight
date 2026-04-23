@@ -136,6 +136,26 @@ class ItemCreate(BaseModel):
     """Create item"""
     name: str = Field(..., max_length=200)
     category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    description: Optional[str] = None
+    total_quantity: int = Field(..., ge=0)
+    location_id: Optional[int] = None
+    tag_serial: Optional[str] = Field(None, max_length=100)
+    tag: Optional[str] = Field(None, max_length=100)
+    per_day_rate: Decimal = Field(0, ge=0)
+    per_event_rate: Decimal = Field(0, ge=0)
+    min_stock_level: int = Field(5, ge=0)
+    is_active: bool = Field(True)
+    item_type: str = Field(default="rentable", pattern="^(rentable|consumable|tool)$")
+    unit: Optional[str] = Field(None, max_length=20)
+    avg_monthly_usage: Optional[int] = Field(None, ge=0)
+    supplier: Optional[str] = Field(None, max_length=200)
+
+class ItemCreate(BaseModel):
+    """Create item"""
+    name: str = Field(..., max_length=200)
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
     description: Optional[str] = None
     total_quantity: int = Field(..., ge=0)
     location_id: Optional[int] = None

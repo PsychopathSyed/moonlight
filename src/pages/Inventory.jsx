@@ -55,11 +55,9 @@ const Inventory = () => {
   const [searchingName, setSearchingName] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [nameSuggestions, setNameSuggestions] = useState([]);
-  const [categorySuggestions, setCategorySuggestions] = useState([]);
-  const [tagSuggestions, setTagSuggestions] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
-    category_id: '',
+    category_name: '',
     total_quantity: '',
     min_stock_level: '',
     item_type: 'rentable',
@@ -210,7 +208,7 @@ const Inventory = () => {
       const rateType = item.per_day_rate > 0 ? 'per_day' : (item.per_event_rate > 0 ? 'per_event' : 'per_day');
       setFormData({
         name: item.name,
-        category_id: item.category_id || '',
+        category_name: item.category_name || '',
         total_quantity: item.total_quantity,
         per_day_rate: item.per_day_rate || 0,
         per_event_rate: item.per_event_rate || 0,
@@ -226,7 +224,7 @@ const Inventory = () => {
       setEditingItem(null);
       setFormData({
         name: '',
-        category_id: '',
+        category_name: '',
         total_quantity: '',
         per_day_rate: 0,
         per_event_rate: 0,
@@ -259,8 +257,9 @@ const Inventory = () => {
         per_day_rate: formData.rate_type === 'per_day' ? parseFloat(formData.rate) : parseFloat(formData.per_day_rate) || 0,
         per_event_rate: formData.rate_type === 'per_event' ? parseFloat(formData.rate) : parseFloat(formData.per_event_rate) || 0,
         min_stock_level: formData.min_stock_level ? parseInt(formData.min_stock_level) : 5,
-        // Convert empty strings to null for optional integer fields
-        category_id: formData.category_id ? (typeof formData.category_id === 'string' ? null : parseInt(formData.category_id)) : null,
+        // Convert empty strings to null for optional fields
+        category_id: formData.category_name ? null : null, // Will be handled by backend
+        category_name: formData.category_name || null,
         location_id: formData.location_id ? parseInt(formData.location_id) : null,
         // Convert empty strings to null for optional string fields
         tag_serial: formData.tag_serial || null,
@@ -366,9 +365,10 @@ const Inventory = () => {
                     <TableCell>Name</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Category</TableCell>
+                    <TableCell>Tag</TableCell>
                     <TableCell>Total Qty</TableCell>
                     <TableCell>Available</TableCell>
-                    <TableCell>Rented</TableCell>
+                    <TableCell>Out</TableCell>
                     <TableCell>Day Rate</TableCell>
                     <TableCell>Event Rate</TableCell>
                     <TableCell>Status</TableCell>
@@ -383,6 +383,7 @@ const Inventory = () => {
                         <Chip label={item.item_type} color={getTypeColor(item.item_type)} size="small" />
                       </TableCell>
                       <TableCell>{item.category_name || '-'}</TableCell>
+                      <TableCell>{item.tag || '-'}</TableCell>
                       <TableCell>{item.total_quantity}</TableCell>
                       <TableCell>{item.available_quantity || 0}</TableCell>
                       <TableCell>{item.rented_quantity || 0}</TableCell>
@@ -473,26 +474,13 @@ const Inventory = () => {
               )}
             />
             
-            <Autocomplete
+            <TextField
               fullWidth
-              freeSolo
-              options={categorySuggestions}
-              getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
-              value={formData.category_id}
-              onInputChange={(event, newValue) => {
-                setFormData({ ...formData, category_id: newValue });
-                if (newValue && newValue.length > 2) {
-                  fetchCategorySuggestions(newValue);
-                }
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Category"
-                  margin="normal"
-                  helperText="Search existing categories or enter new category"
-                />
-              )}
+              label="Category"
+              value={formData.category_name || ''}
+              onChange={(e) => setFormData({ ...formData, category_name: e.target.value })}
+              margin="normal"
+              helperText="Enter category name (will be created if new)"
             />
 
             <Autocomplete

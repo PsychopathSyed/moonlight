@@ -153,6 +153,7 @@ async def list_items(
                     location_id=item.location_id,
                     location_name=item.location.name if item.location else None,
                     tag_serial=item.tag_serial,
+                    tag=item.tag,
                     per_day_rate=item.per_day_rate,
                     per_event_rate=item.per_event_rate,
                     min_stock_level=item.min_stock_level,
@@ -249,16 +250,31 @@ async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
             detail="total_quantity is required"
         )
 
+    # Handle category creation if category_name is provided
+    category_id = item.category_id
+    if item.category_name and not item.category_id:
+        # Create new category
+        existing_category = db.query(Category).filter(Category.name == item.category_name).first()
+        if existing_category:
+            category_id = existing_category.id
+        else:
+            new_category = Category(name=item.category_name)
+            db.add(new_category)
+            db.commit()
+            db.refresh(new_category)
+            category_id = new_category.id
+
     # Create item with calculated values
     db_item = Item(
         name=item.name,
-        category_id=item.category_id,
+        category_id=category_id,
         description=item.description,
         total_quantity=item.total_quantity,
         available_quantity=item.total_quantity,
         rented_quantity=0,
         location_id=item.location_id,
         tag_serial=item.tag_serial,
+        tag=item.tag,
         per_day_rate=item.per_day_rate,
         per_event_rate=item.per_event_rate,
         min_stock_level=item.min_stock_level,
@@ -285,6 +301,7 @@ async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
         location_id=db_item.location_id,
         location_name=db_item.location.name if db_item.location else None,
         tag_serial=db_item.tag_serial,
+        tag=db_item.tag,
         per_day_rate=db_item.per_day_rate,
         per_event_rate=db_item.per_event_rate,
         min_stock_level=db_item.min_stock_level,
@@ -319,6 +336,7 @@ async def get_item(item_id: str, db: Session = Depends(get_db)):
         location_id=item.location_id,
         location_name=item.location.name if item.location else None,
         tag_serial=item.tag_serial,
+        tag=item.tag,
         per_day_rate=item.per_day_rate,
         per_event_rate=item.per_event_rate,
         min_stock_level=item.min_stock_level,
@@ -341,8 +359,32 @@ async def update_item(item_id: str, item: ItemUpdate, db: Session = Depends(get_
             detail="Item not found"
         )
 
+    # Handle category creation if category_name is provided
+    category_id = item.category_id
+    if item.category_name:
+        # Check if category exists
+        existing_category = db.query(Category).filter(Category.name == item.category_name).first()
+        if existing_category:
+            category_id = existing_category.id
+        else:
+            # Create new category
+            new_category = Category(name=item.category_name)
+            db.add(new_category)
+            db.commit()
+            db.refresh(new_category)
+            category_id = new_category.id
+
     # Update fields
     update_data = item.dict(exclude_unset=True)
+    
+    # Handle category_id separately
+    if 'category_id' in update_data:
+        update_data['category_id'] = category_id
+    
+    # Handle tag field
+    if 'tag' in update_data:
+        update_data['tag'] = item.tag
+    
     for field, value in update_data.items():
         setattr(db_item, field, value)
 
@@ -361,6 +403,7 @@ async def update_item(item_id: str, item: ItemUpdate, db: Session = Depends(get_
         location_id=db_item.location_id,
         location_name=db_item.location.name if db_item.location else None,
         tag_serial=db_item.tag_serial,
+        tag=db_item.tag,
         per_day_rate=db_item.per_day_rate,
         per_event_rate=db_item.per_event_rate,
         min_stock_level=db_item.min_stock_level,
