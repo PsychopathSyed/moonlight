@@ -37,6 +37,47 @@ async def list_categories(db: Session = Depends(get_db)):
         for cat in categories
     ]
 
+@router.get("/categories/search", response_model=SuccessResponse)
+async def search_categories(
+    search: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Search categories for autocomplete"""
+    categories = db.query(Category).filter(Category.name.ilike(f"%{search}%")).limit(limit).all()
+    return SuccessResponse(
+        success=True,
+        data={
+            "categories": [
+                {
+                    "id": cat.id,
+                    "name": cat.name
+                }
+                for cat in categories
+            ]
+        }
+    )
+
+@router.get("/tags/search", response_model=SuccessResponse)
+async def search_tags(
+    search: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Search tags for autocomplete"""
+    tags = db.query(Item.tag).filter(Item.tag.ilike(f"%{search}%")).distinct(Item.tag).limit(limit).all()
+    return SuccessResponse(
+        success=True,
+        data={
+            "tags": [
+                {
+                    "name": tag[0]
+                }
+                for tag in tags
+            ]
+        }
+    )
+
 @router.post("/categories", response_model=CategoryResponse)
 async def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
     """Create a new category"""
@@ -200,44 +241,6 @@ async def search_items(
                 for item in items
             ]
         }
-    )
-
-@router.get("/categories/search", response_model=SuccessResponse)
-async def search_categories(
-    search: str = Query(..., min_length=2),
-    limit: int = Query(10, ge=1, le=50),
-    db: Session = Depends(get_db)
-):
-    """Search categories for autocomplete"""
-    categories = db.query(Category).filter(Category.name.ilike(f"%{search}%")).limit(limit).all()
-    return SuccessResponse(
-        success=True,
-        data=[
-            {
-                "id": cat.id,
-                "name": cat.name
-            }
-            for cat in categories
-        ]
-    )
-
-@router.get("/tags/search", response_model=SuccessResponse)
-async def search_tags(
-    search: str = Query(..., min_length=2),
-    limit: int = Query(10, ge=1, le=50),
-    db: Session = Depends(get_db)
-):
-    """Search tags for autocomplete"""
-    # Get unique tags that match search
-    items = db.query(Item.tag).filter(Item.tag.ilike(f"%{search}%"), Item.tag.isnot(None)).distinct().limit(limit).all()
-    return SuccessResponse(
-        success=True,
-        data=[
-            {
-                "name": tag[0]
-            }
-            for tag in items
-        ]
     )
 
 @router.post("", response_model=ItemResponse)

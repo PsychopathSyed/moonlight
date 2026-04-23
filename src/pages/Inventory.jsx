@@ -175,10 +175,9 @@ const Inventory = () => {
 
   const fetchCategorySuggestions = async (search) => {
     try {
-      const response = await api.get('/api/inventory/categories');
-      if (response && Array.isArray(response)) {
-        const filtered = response.filter(cat => cat.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10);
-        setCategorySuggestions(filtered);
+      const response = await api.get('/api/inventory/categories/search', { search, limit: 10 });
+      if (response.success && response.data && response.data.categories) {
+        setCategorySuggestions(response.data.categories);
       }
     } catch (err) {
       console.error('Error fetching category suggestions:', err);
@@ -187,16 +186,9 @@ const Inventory = () => {
 
   const fetchTagSuggestions = async (search) => {
     try {
-      const response = await api.get('/api/inventory');
-      if (response.success && response.data && response.data.items) {
-        // Get unique tags from items
-        const tags = new Set();
-        response.data.items.forEach(item => {
-          if (item.tag && item.tag.toLowerCase().includes(search.toLowerCase())) {
-            tags.add(item.tag);
-          }
-        });
-        setTagSuggestions(Array.from(tags).slice(0, 10).map(tag => ({ name: tag })));
+      const response = await api.get('/api/inventory/tags/search', { search, limit: 10 });
+      if (response.success && response.data && response.data.tags) {
+        setTagSuggestions(response.data.tags);
       }
     } catch (err) {
       console.error('Error fetching tag suggestions:', err);
