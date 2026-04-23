@@ -55,6 +55,8 @@ const Inventory = () => {
   const [searchingName, setSearchingName] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [nameSuggestions, setNameSuggestions] = useState([]);
+  const [categorySuggestions, setCategorySuggestions] = useState([]);
+  const [tagSuggestions, setTagSuggestions] = useState([]);
   const [formData, setFormData] = useState({
     name: '',
     category_name: '',
@@ -168,6 +170,36 @@ const Inventory = () => {
       }
     } catch (err) {
       console.error('Error fetching name suggestions:', err);
+    }
+  };
+
+  const fetchCategorySuggestions = async (search) => {
+    try {
+      const response = await api.get('/api/inventory/categories');
+      if (response && Array.isArray(response)) {
+        const filtered = response.filter(cat => cat.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10);
+        setCategorySuggestions(filtered);
+      }
+    } catch (err) {
+      console.error('Error fetching category suggestions:', err);
+    }
+  };
+
+  const fetchTagSuggestions = async (search) => {
+    try {
+      const response = await api.get('/api/inventory');
+      if (response.success && response.data && response.data.items) {
+        // Get unique tags from items
+        const tags = new Set();
+        response.data.items.forEach(item => {
+          if (item.tag && item.tag.toLowerCase().includes(search.toLowerCase())) {
+            tags.add(item.tag);
+          }
+        });
+        setTagSuggestions(Array.from(tags).slice(0, 10).map(tag => ({ name: tag })));
+      }
+    } catch (err) {
+      console.error('Error fetching tag suggestions:', err);
     }
   };
 
@@ -444,22 +476,67 @@ const Inventory = () => {
               )}
             />
             
-            <TextField
+            <Autocomplete
               fullWidth
-              label="Category"
+              freeSolo
+              options={categorySuggestions}
+              getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
               value={formData.category_name || ''}
-              onChange={(e) => setFormData({ ...formData, category_name: e.target.value })}
-              margin="normal"
-              helperText="Enter category name (will be created if new)"
+              onInputChange={(event, newValue) => {
+                setFormData({ ...formData, category_name: newValue });
+                if (newValue && newValue.length > 2) {
+                  fetchCategorySuggestions(newValue);
+                }
+              }}
+              onChange={(event, newValue) => {
+                if (typeof newValue === 'object' && newValue) {
+                  // User selected existing category
+                  setFormData({
+                    ...formData,
+                    category_name: newValue.name,
+                    category_id: newValue.id || ''
+                  });
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Category"
+                  margin="normal"
+                  helperText="Search existing categories or enter new category"
+                />
+              )}
             />
 
-            <TextField
+            <Autocomplete
               fullWidth
-              label="Tag"
+              freeSolo
+              options={tagSuggestions}
+              getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
               value={formData.tag || ''}
-              onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
-              margin="normal"
-              helperText="Enter tag for categorization"
+              onInputChange={(event, newValue) => {
+                setFormData({ ...formData, tag: newValue });
+                if (newValue && newValue.length > 2) {
+                  fetchTagSuggestions(newValue);
+                }
+              }}
+              onChange={(event, newValue) => {
+                if (typeof newValue === 'object' && newValue) {
+                  // User selected existing tag
+                  setFormData({
+                    ...formData,
+                    tag: newValue.name,
+                  });
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Tag"
+                  margin="normal"
+                  helperText="Search existing tags or enter new tag"
+                />
+              )}
             />
 
             <FormControl fullWidth margin="normal" required>

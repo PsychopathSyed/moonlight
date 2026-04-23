@@ -241,9 +241,217 @@ async def search_tags(
     )
 
 @router.post("", response_model=ItemResponse)
-async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
-    """Create a new item"""
+async def create_or_update_item(item: ItemCreate, db: Session = Depends(get_db)):
+    """Create or update item"""
     # Set default values
+    if not item.total_quantity:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="total_quantity is required"
+        )
+
+    # Check if item with same name already exists
+    existing_item = db.query(Item).filter(Item.name == item.name).first()
+    if existing_item:
+        # Update existing item's quantity instead of creating new entry
+        existing_item.total_quantity += item.total_quantity
+        existing_item.available_quantity += item.total_quantity
+        db.commit()
+        db.refresh(existing_item)
+        
+        return ItemResponse(
+            id=str(existing_item.id),
+            name=existing_item.name,
+            category_id=existing_item.category_id,
+            category_name=existing_item.category_name if existing_item.category else None,
+            description=existing_item.description,
+            total_quantity=existing_item.total_quantity,
+            available_quantity=existing_item.available_quantity,
+            rented_quantity=existing_item.rented_quantity,
+            location_id=existing_item.location_id,
+            location_name=existing_item.location.name if existing_item.location else None,
+            tag_serial=existing_item.tag_serial,
+            tag=existing_item.tag,
+            per_day_rate=existing_item.per_day_rate,
+            per_event_rate=existing_item.per_event_rate,
+            min_stock_level=existing_item.min_stock_level,
+            is_active=existing_item.is_active,
+            item_type=existing_item.item_type,
+            unit=existing_item.unit,
+            avg_monthly_usage=existing_item.avg_monthly_usage,
+            supplier=existing_item.supplier,
+            created_at=existing_item.created_at,
+            updated_at=existing_item.updated_at
+        )
+
+    # Handle category creation if category_name is provided
+    category_id = item.category_id
+    if item.category_name and not item.category_id:
+        # Create new category
+        existing_category = db.query(Category).filter(Category.name == item.category_name).first()
+        if existing_category:
+            category_id = existing_category.id
+        else:
+            new_category = Category(name=item.category_name)
+            db.add(new_category)
+            db.commit()
+            db.refresh(new_category)
+            category_id = new_category.id
+
+    
+    # Create item with calculated values
+    db_item = Item(
+        name=item.name,
+        category_id=category_id,
+        description=item.description,
+        total_quantity=item.total_quantity,
+        available_quantity=item.total_quantity,
+        rented_quantity=0,
+        location_id=item.location_id,
+        tag_serial=item.tag_serial,
+        tag=item.tag,
+        per_day_rate=item.per_day_rate,
+        per_event_rate=item.per_event_rate,
+        min_stock_level=item.min_stock_level,
+        is_active=item.is_active,
+        item_type=item.item_type,
+        unit=item.unit,
+        avg_monthly_usage=item.avg_monthly_usage,
+        supplier=item.supplier
+    )
+
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+
+    return ItemResponse(
+        id=str(db_item.id),
+        name=db_item.name,
+        category_id=db_item.category_id,
+        category_name=db_item.category.name if db_item.category else None,
+        description=db_item.description,
+        total_quantity=db_item.total_quantity,
+        available_quantity=db_item.available_quantity,
+        rented_quantity=db_item.rented_quantity,
+        location_id=db_item.location_id,
+        location_name=db_item.location.name if db_item.location else None,
+        tag_serial=db_item.tag_serial,
+        tag=db_item.tag,
+        per_day_rate=db_item.per_day_rate,
+        per_event_rate=db_item.per_event_rate,
+        min_stock_level=db_item.min_stock_level,
+        is_active=db_item.is_active,
+        item_type=db_item.item_type,
+        unit=db_item.unit,
+        avg_monthly_usage=db_item.avg_monthly_usage,
+        supplier=db_item.supplier,
+        created_at=db_item.created_at,
+        updated_at=db_item.updated_at
+    )
+    if not item.total_quantity:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="total_quantity is required"
+        )
+
+    # Check if item with same name already exists
+    existing_item = db.query(Item).filter(Item.name == item.name).first()
+    if existing_item:
+        # Update existing item's quantity instead of creating new entry
+        existing_item.total_quantity += item.total_quantity
+        existing_item.available_quantity += item.total_quantity
+        db.commit()
+        db.refresh(existing_item)
+
+        return ItemResponse(
+            id=str(existing_item.id),
+            name=existing_item.name,
+            category_id=existing_item.category_id,
+            category_name=existing_item.category.name if existing_item.category else None,
+            description=existing_item.description,
+            total_quantity=existing_item.total_quantity,
+            available_quantity=existing_item.available_quantity,
+            rented_quantity=existing_item.rented_quantity,
+            location_id=existing_item.location_id,
+            location_name=existing_item.location.name if existing_item.location else None,
+            tag_serial=existing_item.tag_serial,
+            tag=existing_item.tag,
+            per_day_rate=existing_item.per_day_rate,
+            per_event_rate=existing_item.per_event_rate,
+            min_stock_level=existing_item.min_stock_level,
+            is_active=existing_item.is_active,
+            item_type=existing_item.item_type,
+            unit=existing_item.unit,
+            avg_monthly_usage=existing_item.avg_monthly_usage,
+            supplier=existing_item.supplier,
+            created_at=existing_item.created_at,
+            updated_at=existing_item.updated_at
+        )
+
+    # Handle category creation if category_name is provided
+    category_id = item.category_id
+    if item.category_name and not item.category_id:
+        # Create new category
+        existing_category = db.query(Category).filter(Category.name == item.category_name).first()
+        if existing_category:
+            category_id = existing_category.id
+        else:
+            new_category = Category(name=item.category_name)
+            db.add(new_category)
+            db.commit()
+            db.refresh(new_category)
+            category_id = new_category.id
+
+
+    # Create item with calculated values
+    db_item = Item(
+        name=item.name,
+        category_id=category_id,
+        description=item.description,
+        total_quantity=item.total_quantity,
+        available_quantity=item.total_quantity,
+        rented_quantity=0,
+        location_id=item.location_id,
+        tag_serial=item.tag_serial,
+        tag=item.tag,
+        per_day_rate=item.per_day_rate,
+        per_event_rate=item.per_event_rate,
+        min_stock_level=item.min_stock_level,
+        is_active=item.is_active,
+        item_type=item.item_type,
+        unit=item.unit,
+        avg_monthly_usage=item.avg_monthly_usage,
+        supplier=item.supplier
+    )
+
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+
+    return ItemResponse(
+        id=str(db_item.id),
+        name=db_item.name,
+        category_id=db_item.category_id,
+        category_name=db_item.category.name if db_item.category else None,
+        description=db_item.description,
+        total_quantity=db_item.total_quantity,
+        available_quantity=db_item.available_quantity,
+        rented_quantity=db_item.rented_quantity,
+        location_id=db_item.location_id,
+        location_name=db_item.location.name if db_item.location else None,
+        tag_serial=db_item.tag_serial,
+        tag=db_item.tag,
+        per_day_rate=db_item.per_day_rate,
+        per_event_rate=db_item.per_event_rate,
+        min_stock_level=db_item.min_stock_level,
+        is_active=db_item.is_active,
+        item_type=db_item.item_type,
+        unit=db_item.unit,
+        avg_monthly_usage=db_item.avg_monthly_usage,
+        supplier=db_item.supplier,
+        created_at=db_item.created_at,
+        updated_at=db_item.updated_at
+    )
     if not item.total_quantity:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -264,6 +472,7 @@ async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
             db.refresh(new_category)
             category_id = new_category.id
 
+    
     # Create item with calculated values
     db_item = Item(
         name=item.name,
@@ -376,15 +585,15 @@ async def update_item(item_id: str, item: ItemUpdate, db: Session = Depends(get_
 
     # Update fields
     update_data = item.dict(exclude_unset=True)
-    
+
     # Handle category_id separately
     if 'category_id' in update_data:
         update_data['category_id'] = category_id
-    
+
     # Handle tag field
     if 'tag' in update_data:
         update_data['tag'] = item.tag
-    
+
     for field, value in update_data.items():
         setattr(db_item, field, value)
 
