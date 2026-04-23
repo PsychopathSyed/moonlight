@@ -171,36 +171,6 @@ const Inventory = () => {
     }
   };
 
-  const fetchCategorySuggestions = async (search) => {
-    try {
-      const response = await api.get('/api/inventory/categories');
-      if (response && Array.isArray(response)) {
-        const filtered = response.filter(cat => cat.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10);
-        setCategorySuggestions(filtered);
-      }
-    } catch (err) {
-      console.error('Error fetching category suggestions:', err);
-    }
-  };
-
-  const fetchTagSuggestions = async (search) => {
-    try {
-      const response = await api.get('/api/inventory');
-      if (response.success && response.data && response.data.items) {
-        // Get unique tags from items
-        const tags = new Set();
-        response.data.items.forEach(item => {
-          if (item.tag && item.tag.toLowerCase().includes(search.toLowerCase())) {
-            tags.add(item.tag);
-          }
-        });
-        setTagSuggestions(Array.from(tags).slice(0, 10).map(tag => ({ name: tag })));
-      }
-    } catch (err) {
-      console.error('Error fetching tag suggestions:', err);
-    }
-  };
-
   const handleOpenDialog = (item = null) => {
     if (item) {
       setEditingItem(item);
@@ -455,11 +425,11 @@ const Inventory = () => {
                   setFormData({
                     ...formData,
                     name: newValue.name,
-                    category_id: newValue.category_id || '',
+                    category_name: '', // Reset category - user should specify
                     unit: newValue.unit || 'pcs',
                     rate_type: newValue.rate_type || 'per_day',
                     rate: newValue.rate || 0,
-                    tag: newValue.tag || ''
+                    tag: '' // Reset tag - user should specify
                   });
                 }
               }}
@@ -483,26 +453,13 @@ const Inventory = () => {
               helperText="Enter category name (will be created if new)"
             />
 
-            <Autocomplete
+            <TextField
               fullWidth
-              freeSolo
-              options={tagSuggestions}
-              getOptionLabel={(option) => typeof option === 'object' ? option.name : option}
-              value={formData.tag}
-              onInputChange={(event, newValue) => {
-                setFormData({ ...formData, tag: newValue });
-                if (newValue && newValue.length > 2) {
-                  fetchTagSuggestions(newValue);
-                }
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Tag"
-                  margin="normal"
-                  helperText="Search existing tags or enter new tag"
-                />
-              )}
+              label="Tag"
+              value={formData.tag || ''}
+              onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
+              margin="normal"
+              helperText="Enter tag for categorization"
             />
 
             <FormControl fullWidth margin="normal" required>
