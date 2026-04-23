@@ -357,9 +357,9 @@ const Inventory = () => {
                 <TableHead>
                   <TableRow>
                     <TableCell>Name</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Category</TableCell>
                     <TableCell>Tag</TableCell>
+                    <TableCell>Category</TableCell>
+                    <TableCell>Type</TableCell>
                     <TableCell>Total Qty</TableCell>
                     <TableCell>Available</TableCell>
                     <TableCell>Out</TableCell>
@@ -373,11 +373,11 @@ const Inventory = () => {
                   {items.map((item) => (
                     <TableRow key={item.id} hover>
                       <TableCell>{item.name}</TableCell>
+                      <TableCell>{item.tag || '-'}</TableCell>
+                      <TableCell>{item.category_name || '-'}</TableCell>
                       <TableCell>
                         <Chip label={item.item_type} color={getTypeColor(item.item_type)} size="small" />
                       </TableCell>
-                      <TableCell>{item.category_name || '-'}</TableCell>
-                      <TableCell>{item.tag || '-'}</TableCell>
                       <TableCell>{item.total_quantity}</TableCell>
                       <TableCell>{item.available_quantity || 0}</TableCell>
                       <TableCell>{item.rented_quantity || 0}</TableCell>
