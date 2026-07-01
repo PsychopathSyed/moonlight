@@ -149,20 +149,26 @@ async def health_check():
             detail="Service unavailable"
         )
 
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    logger.exception(f"Unhandled exception on {request.method} {request.url.path}")
-    return JSONResponse ( 
-	        status_code=500,
-	content={
-        "success": False,
-        "error": {
-            "code": "INTERNAL_ERROR",
-            "message": "An unexpected error occurred"
-        }
-    }
-)
+# Global exception handling, implemented as middleware (not @app.exception_handler)
+# so the response still passes back out through CORSMiddleware. A handler registered
+# via @app.exception_handler(Exception) is wired into Starlette's ServerErrorMiddleware,
+# which sits OUTSIDE CORSMiddleware - its responses would never get CORS headers.
+@app.middleware("http")
+async def catch_exceptions_middleware(request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        logger.exception(f"Unhandled exception on {request.method} {request.url.path}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred"
+                }
+            }
+        )
 # Run server
 if __name__ == "__main__":
     uvicorn.run(
