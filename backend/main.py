@@ -58,7 +58,6 @@ def get_db():
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Event Rental Management System...")
-    logger.info(f"Database: {settings.DATABASE_URL}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
 
     # Create tables if they don't exist yet (idempotent - safe to run every startup;
