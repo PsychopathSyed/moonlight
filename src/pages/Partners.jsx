@@ -7,7 +7,6 @@ import {
   Typography,
   Button,
   TextField,
-  Paper,
   Avatar,
   Chip,
   Table,
@@ -23,22 +22,29 @@ import {
   DialogActions,
   Select,
   MenuItem,
-  LinearProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Business as PartnerIcon,
   ArrowDownward as RentInIcon,
-  ArrowUpward as RentOutIcon,
   AttachMoney as MoneyIcon,
   TrendingUp as TrendIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
   Receipt as PayIcon,
   PendingActions as PendingIcon,
   CheckCircle as PaidIcon,
 } from '@mui/icons-material';
 import { useOutletContext } from 'react-router-dom';
+import api from '../api';
+
+const emptyPartnerForm = {
+  name: '', phone: '', address: '', email: '',
+  commission_rate: '15', contact_person: '', available_items: ''
+};
+const emptyRentalForm = {
+  partner_id: '', order_id: '', item_name: '', category: '',
+  quantity: '', rate_per_day: '', days: ''
+};
 
 export default function Partners() {
   const { setHeaderActions } = useOutletContext();
@@ -47,40 +53,32 @@ export default function Partners() {
   const [selectedTab, setSelectedTab] = useState('partners');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const partners = [
-    { id: 1, name: 'Event Gear Rentals', phone: '+92-300-1112223', items: 25, rate: '15%', balance: 'PKR 45,000', status: 'active' },
-    { id: 2, name: 'Pro Sound Systems', phone: '+92-321-4445556', items: 18, rate: '12%', balance: 'PKR 22,000', status: 'active' },
-    { id: 3, name: 'Light World', phone: '+92-333-6667788', items: 32, rate: '10%', balance: 'PKR 0', status: 'active' },
-    { id: 4, name: 'DJ Equipment Pool', phone: '+92-300-7778899', items: 15, rate: '18%', balance: 'PKR 18,500', status: 'pending' },
-  ];
+  const [partners, setPartners] = useState([]);
+  const [partnerRentals, setPartnerRentals] = useState([]);
+  const [payables, setPayables] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [partnerForm, setPartnerForm] = useState(emptyPartnerForm);
+  const [rentalForm, setRentalForm] = useState(emptyRentalForm);
+  const [error, setError] = useState('');
 
-  const partnerRentals = [
-    { id: 1, partner: 'Event Gear Rentals', item: 'Meyer Sound Speaker', category: 'Speakers', qty: 4, rate: 2500, days: 3, total: 30000, order: 'ORD-001', status: 'pending' },
-    { id: 2, partner: 'Pro Sound Systems', item: 'Line Array System', category: 'Speakers', qty: 8, rate: 1800, days: 2, total: 28800, order: 'ORD-002', status: 'pending' },
-    { id: 3, partner: 'Light World', item: 'Robotic Moving Head', category: 'Lights', qty: 6, rate: 1200, days: 2, total: 14400, order: 'ORD-003', status: 'paid' },
-    { id: 4, partner: 'Event Gear Rentals', item: 'Subwoofer Array', category: 'Speakers', qty: 4, rate: 2000, days: 3, total: 24000, order: 'ORD-004', status: 'pending' },
-    { id: 5, partner: 'DJ Equipment Pool', item: 'Pioneer DJM Mixer', category: 'DJ', qty: 2, rate: 3000, days: 2, total: 12000, order: 'ORD-005', status: 'overdue' },
-  ];
+  const loadPartnersData = async () => {
+    const response = await api.get(api.endpoints.partners.list);
+    setPartners(response.data?.partners || []);
+    setPartnerRentals(response.data?.partner_rentals || []);
+    setPayables(response.data?.payables || []);
+  };
 
-  const payables = [
-    { id: 1, partner: 'Event Gear Rentals', amount: 45000, paid: 0, balance: 45000, dueDate: '2026-04-20', status: 'pending' },
-    { id: 2, partner: 'Pro Sound Systems', amount: 22000, paid: 5000, balance: 17000, dueDate: '2026-04-18', status: 'partial' },
-    { id: 3, partner: 'Light World', amount: 14400, paid: 14400, balance: 0, dueDate: '2026-04-15', status: 'paid' },
-    { id: 4, partner: 'DJ Equipment Pool', amount: 18500, paid: 0, balance: 18500, dueDate: '2026-04-17', status: 'overdue' },
-  ];
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'paid': return { bg: '#dcfce7', text: '#166534', icon: <PaidIcon /> };
-      case 'partial': return { bg: '#fef3c7', text: '#92400e', icon: <PendingIcon /> };
-      case 'overdue': return { bg: '#fee2e2', text: '#991b1b', icon: <PendingIcon /> };
-      case 'pending': return { bg: '#e0e7ff', text: '#4338ca', icon: <PendingIcon /> };
-      default: return { bg: '#f1f5f9', text: '#475569', icon: <PendingIcon /> };
-    }
+  const loadOrders = async () => {
+    const response = await api.get(api.endpoints.orders.list, { page_size: 100 });
+    setOrders(response.data?.orders || []);
   };
 
   useEffect(() => {
-    // Set header actions
+    loadPartnersData().catch((e) => setError(e.message));
+    loadOrders().catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
     if (setHeaderActions) {
       setHeaderActions(
         <>
@@ -104,11 +102,75 @@ export default function Partners() {
     }
   }, [searchTerm, setHeaderActions]);
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'paid': return { bg: '#dcfce7', text: '#166534', icon: <PaidIcon /> };
+      case 'partial': return { bg: '#fef3c7', text: '#92400e', icon: <PendingIcon /> };
+      case 'overdue': return { bg: '#fee2e2', text: '#991b1b', icon: <PendingIcon /> };
+      case 'pending': return { bg: '#e0e7ff', text: '#4338ca', icon: <PendingIcon /> };
+      default: return { bg: '#f1f5f9', text: '#475569', icon: <PendingIcon /> };
+    }
+  };
+
   const totalPayables = payables.reduce((sum, p) => sum + p.balance, 0);
-  const totalPaid = payables.reduce((sum, p) => sum + p.paid, 0);
+  const totalPaid = payables.reduce((sum, p) => sum + p.paid_amount, 0);
+
+  const filteredPartners = partners.filter((p) =>
+    !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAddPartner = async () => {
+    try {
+      await api.post(api.endpoints.partners.create, partnerForm);
+      setPartnerForm(emptyPartnerForm);
+      setOpenPartner(false);
+      await loadPartnersData();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const handleDeletePartner = async (partnerId) => {
+    try {
+      await api.delete(api.endpoints.partners.delete(partnerId));
+      await loadPartnersData();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const handleAddRental = async () => {
+    try {
+      await api.post(api.endpoints.partners.rentals, {
+        ...rentalForm,
+        order_id: rentalForm.order_id || null,
+        quantity: Number(rentalForm.quantity),
+        rate_per_day: Number(rentalForm.rate_per_day),
+        days: Number(rentalForm.days)
+      });
+      setRentalForm(emptyRentalForm);
+      setOpenRentIn(false);
+      await loadPartnersData();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const handlePayPayable = async (payableId, balance) => {
+    try {
+      await api.put(`${api.endpoints.partners.payables}/${payableId}/pay`, { amount: balance });
+      await loadPartnersData();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
           <Typography variant="h4" gutterBottom sx={{ fontWeight: 700, color: '#1e293b' }}>
@@ -237,7 +299,6 @@ export default function Partners() {
                   <TableRow sx={{ bgcolor: '#f8fafc' }}>
                     <TableCell sx={{ fontWeight: 600 }}>Partner Name</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Items Available</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Commission Rate</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Balance</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -245,14 +306,13 @@ export default function Partners() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {partners.map((partner) => (
+                  {filteredPartners.map((partner) => (
                     <TableRow key={partner.id} hover>
                       <TableCell sx={{ fontWeight: 600 }}>{partner.name}</TableCell>
                       <TableCell>{partner.phone}</TableCell>
-                      <TableCell>{partner.items}</TableCell>
-                      <TableCell>{partner.rate}</TableCell>
-                      <TableCell sx={{ fontWeight: 700, color: partner.balance === 'PKR 0' ? '#10b981' : '#ef4444' }}>
-                        {partner.balance}
+                      <TableCell>{partner.commission_rate}%</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: partner.balance === 0 ? '#10b981' : '#ef4444' }}>
+                        PKR {partner.balance.toLocaleString()}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -266,10 +326,7 @@ export default function Partners() {
                         />
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" color="primary">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" color="error">
+                        <IconButton size="small" color="error" onClick={() => handleDeletePartner(partner.id)}>
                           <DeleteIcon />
                         </IconButton>
                       </TableCell>
@@ -283,7 +340,6 @@ export default function Partners() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Order</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Partner</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Item</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
@@ -297,17 +353,18 @@ export default function Partners() {
                 <TableBody>
                   {partnerRentals.map((rental) => (
                     <TableRow key={rental.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{rental.order}</TableCell>
-                      <TableCell>{rental.partner}</TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{rental.item}</TableCell>
+                      <TableCell>{rental.partner_name}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{rental.item_name}</TableCell>
                       <TableCell>
-                        <Chip label={rental.category} size="small" sx={{ bgcolor: '#e0e7ff', color: '#4338ca' }} />
+                        {rental.category && (
+                          <Chip label={rental.category} size="small" sx={{ bgcolor: '#e0e7ff', color: '#4338ca' }} />
+                        )}
                       </TableCell>
-                      <TableCell>{rental.qty}</TableCell>
-                      <TableCell>PKR {rental.rate.toLocaleString()}</TableCell>
+                      <TableCell>{rental.quantity}</TableCell>
+                      <TableCell>PKR {rental.rate_per_day.toLocaleString()}</TableCell>
                       <TableCell>{rental.days}</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: '#6366f1' }}>
-                        PKR {rental.total.toLocaleString()}
+                        PKR {rental.total_amount.toLocaleString()}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -342,15 +399,15 @@ export default function Partners() {
                 <TableBody>
                   {payables.map((payable) => (
                     <TableRow key={payable.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{payable.partner}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{payable.partner_name}</TableCell>
                       <TableCell>PKR {payable.amount.toLocaleString()}</TableCell>
                       <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                        PKR {payable.paid.toLocaleString()}
+                        PKR {payable.paid_amount.toLocaleString()}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 700, color: payable.balance === 0 ? '#10b981' : '#ef4444' }}>
                         PKR {payable.balance.toLocaleString()}
                       </TableCell>
-                      <TableCell>{payable.dueDate}</TableCell>
+                      <TableCell>{payable.due_date}</TableCell>
                       <TableCell>
                         <Chip
                           label={payable.status}
@@ -364,11 +421,14 @@ export default function Partners() {
                         />
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" color="success" title="Make Payment">
+                        <IconButton
+                          size="small"
+                          color="success"
+                          title="Mark Fully Paid"
+                          disabled={payable.balance <= 0}
+                          onClick={() => handlePayPayable(payable.id, payable.balance)}
+                        >
                           <PayIcon />
-                        </IconButton>
-                        <IconButton size="small" color="primary" title="View Details">
-                          <MoneyIcon />
                         </IconButton>
                       </TableCell>
                     </TableRow>
@@ -384,18 +444,26 @@ export default function Partners() {
         <DialogTitle>Add New Partner</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-            <TextField label="Partner Name" fullWidth required />
-            <TextField label="Phone Number" fullWidth required />
-            <TextField label="Address" fullWidth multiline rows={2} />
-            <TextField label="Email" fullWidth type="email" />
-            <TextField label="Commission Rate (%)" fullWidth type="number" defaultValue="15" />
-            <TextField label="Contact Person" fullWidth />
-            <TextField label="Available Items" fullWidth multiline rows={2} placeholder="List items available for rent-in..." />
+            <TextField label="Partner Name" fullWidth required
+              value={partnerForm.name} onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })} />
+            <TextField label="Phone Number" fullWidth required
+              value={partnerForm.phone} onChange={(e) => setPartnerForm({ ...partnerForm, phone: e.target.value })} />
+            <TextField label="Address" fullWidth multiline rows={2}
+              value={partnerForm.address} onChange={(e) => setPartnerForm({ ...partnerForm, address: e.target.value })} />
+            <TextField label="Email" fullWidth type="email"
+              value={partnerForm.email} onChange={(e) => setPartnerForm({ ...partnerForm, email: e.target.value })} />
+            <TextField label="Commission Rate (%)" fullWidth type="number"
+              value={partnerForm.commission_rate} onChange={(e) => setPartnerForm({ ...partnerForm, commission_rate: e.target.value })} />
+            <TextField label="Contact Person" fullWidth
+              value={partnerForm.contact_person} onChange={(e) => setPartnerForm({ ...partnerForm, contact_person: e.target.value })} />
+            <TextField label="Available Items" fullWidth multiline rows={2} placeholder="List items available for rent-in..."
+              value={partnerForm.available_items} onChange={(e) => setPartnerForm({ ...partnerForm, available_items: e.target.value })} />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenPartner(false)}>Cancel</Button>
-          <Button variant="contained" sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
+          <Button variant="contained" sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
+            onClick={handleAddPartner} disabled={!partnerForm.name}>
             Add Partner
           </Button>
         </DialogActions>
@@ -407,7 +475,9 @@ export default function Partners() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <Select label="Select Partner" fullWidth size="small" defaultValue="" displayEmpty>
+                <Select fullWidth size="small" displayEmpty
+                  value={rentalForm.partner_id}
+                  onChange={(e) => setRentalForm({ ...rentalForm, partner_id: e.target.value })}>
                   <MenuItem value="" disabled>Select Partner</MenuItem>
                   {partners.map((p) => (
                     <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
@@ -415,13 +485,23 @@ export default function Partners() {
                 </Select>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Link to Order" fullWidth size="small" placeholder="e.g., ORD-001" />
+                <Select fullWidth size="small" displayEmpty
+                  value={rentalForm.order_id}
+                  onChange={(e) => setRentalForm({ ...rentalForm, order_id: e.target.value })}>
+                  <MenuItem value="">No linked order</MenuItem>
+                  {orders.map((o) => (
+                    <MenuItem key={o.id} value={o.id}>{o.order_number}</MenuItem>
+                  ))}
+                </Select>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Item Name" fullWidth required />
+                <TextField label="Item Name" fullWidth required
+                  value={rentalForm.item_name} onChange={(e) => setRentalForm({ ...rentalForm, item_name: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <Select label="Category" fullWidth size="small" defaultValue="" displayEmpty>
+                <Select fullWidth size="small" displayEmpty
+                  value={rentalForm.category}
+                  onChange={(e) => setRentalForm({ ...rentalForm, category: e.target.value })}>
                   <MenuItem value="" disabled>Select Category</MenuItem>
                   <MenuItem value="Speakers">Speakers</MenuItem>
                   <MenuItem value="Lights">Lights</MenuItem>
@@ -430,16 +510,16 @@ export default function Partners() {
                 </Select>
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField label="Quantity" fullWidth type="number" required />
+                <TextField label="Quantity" fullWidth type="number" required
+                  value={rentalForm.quantity} onChange={(e) => setRentalForm({ ...rentalForm, quantity: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField label="Rate per Day (PKR)" fullWidth type="number" required />
+                <TextField label="Rate per Day (PKR)" fullWidth type="number" required
+                  value={rentalForm.rate_per_day} onChange={(e) => setRentalForm({ ...rentalForm, rate_per_day: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField label="Number of Days" fullWidth type="number" required />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField label="Notes" fullWidth multiline rows={2} placeholder="Any special notes about this rental..." />
+                <TextField label="Number of Days" fullWidth type="number" required
+                  value={rentalForm.days} onChange={(e) => setRentalForm({ ...rentalForm, days: e.target.value })} />
               </Grid>
             </Grid>
           </Box>
@@ -450,6 +530,8 @@ export default function Partners() {
             variant="contained"
             startIcon={<RentInIcon />}
             sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
+            onClick={handleAddRental}
+            disabled={!rentalForm.partner_id || !rentalForm.item_name || !rentalForm.quantity}
           >
             Add Rent-In
           </Button>

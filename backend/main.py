@@ -13,8 +13,9 @@ from database.connection import engine, SessionLocal, Base
 from routers import (
     auth, inventory, customers,
     orders, dashboard, invoices, quotations,
-    payments, rentals, returns, 
+    payments, rentals, returns,
     expenses, hr, ledger,
+    purchases, partners,
     placeholders as other_routers
 )
 
@@ -95,6 +96,8 @@ app.include_router(returns.router, tags=["Returns"])
 app.include_router(expenses.router, tags=["Expenses"])
 app.include_router(hr.router, tags=["HR"])
 app.include_router(ledger.router, tags=["Ledger"])
+app.include_router(purchases.router, tags=["Purchases"])
+app.include_router(partners.router, tags=["Partners"])
 
 # Placeholder routers for remaining modules
 app.include_router(other_routers.router, tags=["Other Modules"])

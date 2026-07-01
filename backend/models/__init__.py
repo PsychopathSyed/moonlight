@@ -297,7 +297,7 @@ class Purchase(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     vendor_id = Column(UUID(as_uuid=True), ForeignKey('vendors.id'))
-    item_id = Column(UUID(as_uuid=True), ForeignKey('items.id'))
+    item_id = Column(Integer, ForeignKey('items.id'))
     item_name = Column(String(200))
     quantity = Column(Integer, nullable=False)
     purchase_price = Column(DECIMAL(10, 2), nullable=False)

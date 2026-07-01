@@ -82,58 +82,6 @@ async def create_payment():
     }
 
 # ============================================
-# Purchases (placeholder)
-# ============================================
-
-purchases_router = APIRouter(prefix="/api/purchases", tags=["Purchases"])
-
-@purchases_router.get("")
-async def list_purchases(db: Session = Depends(get_db)):
-    """List purchases - placeholder"""
-    return {
-        "success": True,
-        "data": {
-            "purchases": [],
-            "vendors": [],
-            "message": "Purchase module - implementation pending"
-        }
-    }
-
-@purchases_router.post("")
-async def create_purchase():
-    """Create purchase - placeholder"""
-    return {
-        "success": True,
-        "message": "Create purchase - implementation pending"
-    }
-
-# ============================================
-# Partners (placeholder)
-# ============================================
-
-partners_router = APIRouter(prefix="/api/partners", tags=["Partners"])
-
-@partners_router.get("")
-async def list_partners(db: Session = Depends(get_db)):
-    """List partners - placeholder"""
-    return {
-        "success": True,
-        "data": {
-            "partners": [],
-            "payables": [],
-            "message": "Partner module - implementation pending"
-        }
-    }
-
-@partners_router.post("")
-async def create_partner():
-    """Create partner - placeholder"""
-    return {
-        "success": True,
-        "message": "Create partner - implementation pending"
-    }
-
-# ============================================
 # Returns (placeholder)
 # ============================================
 

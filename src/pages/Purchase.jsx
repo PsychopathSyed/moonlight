@@ -7,7 +7,6 @@ import {
   Typography,
   Button,
   TextField,
-  Paper,
   Avatar,
   Chip,
   Table,
@@ -30,12 +29,16 @@ import {
   Store as VendorIcon,
   Inventory as InventoryIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
-  TrendingUp as TrendIcon,
-  AttachMoney as MoneyIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useOutletContext } from 'react-router-dom';
+import api from '../api';
+
+const emptyVendorForm = { name: '', phone: '', address: '', email: '', contact_person: '' };
+const emptyPurchaseForm = {
+  vendor_id: '', item_id: '', item_name: '', purchase_date: '',
+  description: '', quantity: '', purchase_price: ''
+};
 
 export default function Purchase() {
   const { setHeaderActions } = useOutletContext();
@@ -44,22 +47,35 @@ export default function Purchase() {
   const [selectedTab, setSelectedTab] = useState('vendors');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const vendors = [
-    { id: 1, name: 'Sound Systems Ltd', phone: '+92-300-1234567', date: '2026-01-15', items: 12, total: 'PKR 450,000' },
-    { id: 2, name: 'Lighting Pro', phone: '+92-321-7654321', date: '2026-02-20', items: 8, total: 'PKR 280,000' },
-    { id: 3, name: 'DJ Equipment Co', phone: '+92-333-1112233', date: '2026-03-10', items: 15, total: 'PKR 520,000' },
-  ];
+  const [vendors, setVendors] = useState([]);
+  const [purchases, setPurchases] = useState([]);
+  const [items, setItems] = useState([]);
+  const [vendorForm, setVendorForm] = useState(emptyVendorForm);
+  const [purchaseForm, setPurchaseForm] = useState(emptyPurchaseForm);
+  const [error, setError] = useState('');
 
-  const purchases = [
-    { id: 1, vendor: 'Sound Systems Ltd', item: 'JBL Speakers 15"', category: 'Speakers', qty: 4, price: 15000, total: 60000, date: '2026-04-15' },
-    { id: 2, vendor: 'Lighting Pro', item: 'SMD LED Panel P3', category: 'Lights', qty: 6, price: 25000, total: 150000, date: '2026-04-12' },
-    { id: 3, vendor: 'DJ Equipment Co', item: 'Pioneer CDJ 2000', category: 'DJ', qty: 2, price: 45000, total: 90000, date: '2026-04-10' },
-    { id: 4, vendor: 'Sound Systems Ltd', item: 'Subwoofer 18"', category: 'Speakers', qty: 2, price: 20000, total: 40000, date: '2026-04-08' },
-    { id: 5, vendor: 'Lighting Pro', item: 'Moving Head Beam', category: 'Lights', qty: 4, price: 18000, total: 72000, date: '2026-04-05' },
-  ];
+  const loadVendors = async () => {
+    const response = await api.get(api.endpoints.purchase.vendors);
+    setVendors(response.data?.vendors || []);
+  };
+
+  const loadPurchases = async () => {
+    const response = await api.get(api.endpoints.purchase.purchases);
+    setPurchases(response.data?.purchases || []);
+  };
+
+  const loadItems = async () => {
+    const response = await api.get(api.endpoints.inventory.list, { page_size: 100 });
+    setItems(response.data?.items || []);
+  };
 
   useEffect(() => {
-    // Set header actions
+    loadVendors().catch((e) => setError(e.message));
+    loadPurchases().catch((e) => setError(e.message));
+    loadItems().catch((e) => setError(e.message));
+  }, []);
+
+  useEffect(() => {
     if (setHeaderActions) {
       setHeaderActions(
         <>
@@ -83,13 +99,71 @@ export default function Purchase() {
     }
   }, [searchTerm, setHeaderActions]);
 
-  const categories = ['Speakers', 'Lights', 'DJ Equipment', 'Screens', 'Cables', 'Microphones', 'Stands', 'Other'];
+  const totalPurchases = purchases.reduce((sum, p) => sum + p.total_price, 0);
+  const totalItems = purchases.reduce((sum, p) => sum + p.quantity, 0);
 
-  const totalPurchases = purchases.reduce((sum, p) => sum + p.total, 0);
-  const totalItems = purchases.reduce((sum, p) => sum + p.qty, 0);
+  const purchasesByVendor = (vendorId) => purchases.filter((p) => p.vendor_id === vendorId);
+
+  const filteredPurchases = purchases.filter((p) =>
+    !searchTerm || (p.item_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.vendor_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  const filteredVendors = vendors.filter((v) =>
+    !searchTerm || v.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAddVendor = async () => {
+    try {
+      await api.post(api.endpoints.purchase.vendors, vendorForm);
+      setVendorForm(emptyVendorForm);
+      setOpenVendor(false);
+      await loadVendors();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const handleDeleteVendor = async (vendorId) => {
+    try {
+      await api.delete(api.endpoints.purchase.vendor(vendorId));
+      await loadVendors();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const handleAddPurchase = async () => {
+    try {
+      await api.post(api.endpoints.purchase.purchases, {
+        ...purchaseForm,
+        item_id: purchaseForm.item_id || null,
+        quantity: Number(purchaseForm.quantity),
+        purchase_price: Number(purchaseForm.purchase_price),
+        purchase_date: purchaseForm.purchase_date || undefined
+      });
+      setPurchaseForm(emptyPurchaseForm);
+      setOpenItem(false);
+      await Promise.all([loadPurchases(), loadItems()]);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const handleDeletePurchase = async (purchaseId) => {
+    try {
+      await api.delete(api.endpoints.purchase.purchase(purchaseId));
+      await loadPurchases();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   return (
     <Box sx={{ p: 3, bgcolor: '#f8fafc', minHeight: '100vh' }}>
+      {error && (
+        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+      )}
+
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
@@ -143,7 +217,7 @@ export default function Purchase() {
           <Card sx={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
             <CardContent>
               <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <MoneyIcon />
+                <PurchaseIcon />
               </Avatar>
               <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
                 Total Value
@@ -175,20 +249,6 @@ export default function Purchase() {
             </Button>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-            <TextField
-              placeholder="Search purchases..."
-              size="small"
-              sx={{ minWidth: 300, borderRadius: 8 }}
-            />
-            <Select size="small" defaultValue="all" sx={{ minWidth: 150, borderRadius: 8 }}>
-              <MenuItem value="all">All Categories</MenuItem>
-              {categories.map((cat) => (
-                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-              ))}
-            </Select>
-          </Box>
-
           {selectedTab === 'purchases' ? (
             <TableContainer>
               <Table>
@@ -197,7 +257,6 @@ export default function Purchase() {
                     <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Vendor</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Item</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Quantity</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Price</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Total</TableCell>
@@ -205,24 +264,18 @@ export default function Purchase() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {purchases.map((purchase) => (
+                  {filteredPurchases.map((purchase) => (
                     <TableRow key={purchase.id} hover>
-                      <TableCell>{purchase.date}</TableCell>
-                      <TableCell>{purchase.vendor}</TableCell>
-                      <TableCell sx={{ fontWeight: 500 }}>{purchase.item}</TableCell>
-                      <TableCell>
-                        <Chip label={purchase.category} size="small" sx={{ bgcolor: '#e0e7ff', color: '#4338ca' }} />
-                      </TableCell>
-                      <TableCell>{purchase.qty}</TableCell>
-                      <TableCell>PKR {purchase.price.toLocaleString()}</TableCell>
+                      <TableCell>{purchase.purchase_date}</TableCell>
+                      <TableCell>{purchase.vendor_name || '-'}</TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>{purchase.item_name}</TableCell>
+                      <TableCell>{purchase.quantity}</TableCell>
+                      <TableCell>PKR {purchase.purchase_price.toLocaleString()}</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: '#6366f1' }}>
-                        PKR {purchase.total.toLocaleString()}
+                        PKR {purchase.total_price.toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <IconButton size="small" color="primary">
-                          <ViewIcon />
-                        </IconButton>
-                        <IconButton size="small" color="error">
+                        <IconButton size="small" color="error" onClick={() => handleDeletePurchase(purchase.id)}>
                           <DeleteIcon />
                         </IconButton>
                       </TableCell>
@@ -238,32 +291,31 @@ export default function Purchase() {
                   <TableRow sx={{ bgcolor: '#f8fafc' }}>
                     <TableCell sx={{ fontWeight: 600 }}>Vendor Name</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Added On</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Items Purchased</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Total Purchases</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {vendors.map((vendor) => (
-                    <TableRow key={vendor.id} hover>
-                      <TableCell sx={{ fontWeight: 600 }}>{vendor.name}</TableCell>
-                      <TableCell>{vendor.phone}</TableCell>
-                      <TableCell>{vendor.date}</TableCell>
-                      <TableCell>{vendor.items}</TableCell>
-                      <TableCell sx={{ fontWeight: 700, color: '#6366f1' }}>
-                        {vendor.total}
-                      </TableCell>
-                      <TableCell>
-                        <IconButton size="small" color="primary">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" color="error">
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredVendors.map((vendor) => {
+                    const vendorPurchases = purchasesByVendor(vendor.id);
+                    const vendorTotal = vendorPurchases.reduce((sum, p) => sum + p.total_price, 0);
+                    return (
+                      <TableRow key={vendor.id} hover>
+                        <TableCell sx={{ fontWeight: 600 }}>{vendor.name}</TableCell>
+                        <TableCell>{vendor.phone}</TableCell>
+                        <TableCell>{vendorPurchases.length}</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#6366f1' }}>
+                          PKR {vendorTotal.toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <IconButton size="small" color="error" onClick={() => handleDeleteVendor(vendor.id)}>
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -275,16 +327,22 @@ export default function Purchase() {
         <DialogTitle>Add New Vendor</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-            <TextField label="Vendor Name" fullWidth required />
-            <TextField label="Phone Number" fullWidth required />
-            <TextField label="Address" fullWidth multiline rows={2} />
-            <TextField label="Email" fullWidth type="email" />
-            <TextField label="Contact Person" fullWidth />
+            <TextField label="Vendor Name" fullWidth required
+              value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} />
+            <TextField label="Phone Number" fullWidth required
+              value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} />
+            <TextField label="Address" fullWidth multiline rows={2}
+              value={vendorForm.address} onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })} />
+            <TextField label="Email" fullWidth type="email"
+              value={vendorForm.email} onChange={(e) => setVendorForm({ ...vendorForm, email: e.target.value })} />
+            <TextField label="Contact Person" fullWidth
+              value={vendorForm.contact_person} onChange={(e) => setVendorForm({ ...vendorForm, contact_person: e.target.value })} />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenVendor(false)}>Cancel</Button>
-          <Button variant="contained" sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
+          <Button variant="contained" sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
+            onClick={handleAddVendor} disabled={!vendorForm.name}>
             Add Vendor
           </Button>
         </DialogActions>
@@ -296,7 +354,9 @@ export default function Purchase() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <Select label="Select Vendor" fullWidth size="small" defaultValue="" displayEmpty>
+                <Select fullWidth size="small" displayEmpty
+                  value={purchaseForm.vendor_id}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, vendor_id: e.target.value })}>
                   <MenuItem value="" disabled>Select Vendor</MenuItem>
                   {vendors.map((v) => (
                     <MenuItem key={v.id} value={v.id}>{v.name}</MenuItem>
@@ -304,27 +364,46 @@ export default function Purchase() {
                 </Select>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Purchase Date" fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} />
+                <TextField label="Purchase Date" fullWidth type="date" size="small" InputLabelProps={{ shrink: true }}
+                  value={purchaseForm.purchase_date}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, purchase_date: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Item Name" fullWidth required />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Select label="Category" fullWidth size="small" defaultValue="" displayEmpty>
-                  <MenuItem value="" disabled>Select Category</MenuItem>
-                  {categories.map((cat) => (
-                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                <Select fullWidth size="small" displayEmpty
+                  value={purchaseForm.item_id}
+                  onChange={(e) => {
+                    const item = items.find((i) => i.id === e.target.value);
+                    setPurchaseForm({
+                      ...purchaseForm,
+                      item_id: e.target.value,
+                      item_name: item ? item.name : purchaseForm.item_name
+                    });
+                  }}>
+                  <MenuItem value="">New / unlisted item</MenuItem>
+                  {items.map((i) => (
+                    <MenuItem key={i.id} value={i.id}>{i.name}</MenuItem>
                   ))}
                 </Select>
               </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField label="Item Name" fullWidth required
+                  value={purchaseForm.item_name}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, item_name: e.target.value })} />
+              </Grid>
               <Grid item xs={12}>
-                <TextField label="Description" fullWidth multiline rows={2} />
+                <TextField label="Description" fullWidth multiline rows={2}
+                  value={purchaseForm.description}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, description: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Quantity" fullWidth type="number" required />
+                <TextField label="Quantity" fullWidth type="number" required
+                  value={purchaseForm.quantity}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, quantity: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Purchase Price (PKR)" fullWidth type="number" required />
+                <TextField label="Purchase Price (PKR)" fullWidth type="number" required
+                  value={purchaseForm.purchase_price}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, purchase_price: e.target.value })} />
               </Grid>
             </Grid>
           </Box>
@@ -335,8 +414,10 @@ export default function Purchase() {
             variant="contained"
             startIcon={<InventoryIcon />}
             sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+            onClick={handleAddPurchase}
+            disabled={!purchaseForm.item_name || !purchaseForm.quantity || !purchaseForm.purchase_price}
           >
-            Add to Inventory
+            Add Purchase
           </Button>
         </DialogActions>
       </Dialog>
