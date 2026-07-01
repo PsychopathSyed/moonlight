@@ -40,6 +40,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    # Vercel gives every deployment a unique per-build URL in addition to the
+    # stable production domain, so also allow any *.vercel.app subdomain that
+    # starts with "moonlight" (covers preview/deployment-hash URLs automatically)
+    allow_origin_regex=r"^https://moonlight[a-z0-9-]*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
