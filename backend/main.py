@@ -61,18 +61,22 @@ async def lifespan(app: FastAPI):
     logger.info(f"Database: {settings.DATABASE_URL}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
 
-    # Create tables (for development - use Alembic for production)
+    # Create tables if they don't exist yet (idempotent - safe to run every startup;
+    # this app has no Alembic migrations in actual use, so this is the only thing
+    # that ever creates the schema)
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables verified/created")
+    except Exception:
+        logger.exception("Startup table creation failed")
+
     if settings.ENVIRONMENT == "development":
         try:
-            Base.metadata.create_all(bind=engine)
-            logger.info("Database tables created")
-            # Create initial data
             from database.connection import init_db
             init_db()
             logger.info("Initial database data created")
-        except Exception:
-            logger.exception("Startup database initialization failed")
-            raise
+        except Exception as e:
+            logger.warning(f"Could not create initial data: {e}")
 
     yield
 
@@ -145,7 +149,7 @@ async def health_check():
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.exception(f"Unhandled exception on {request.method} {request.url.path}")
     return JSONResponse ( 
 	        status_code=500,
 	content={
