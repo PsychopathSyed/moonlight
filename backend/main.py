@@ -62,15 +62,16 @@ async def lifespan(app: FastAPI):
 
     # Create tables (for development - use Alembic for production)
     if settings.ENVIRONMENT == "development":
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created")
-        # Create initial data
-        from database.connection import init_db
         try:
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables created")
+            # Create initial data
+            from database.connection import init_db
             init_db()
             logger.info("Initial database data created")
-        except Exception as e:
-            logger.warning(f"Could not create initial data: {e}")
+        except Exception:
+            logger.exception("Startup database initialization failed")
+            raise
 
     yield
 
