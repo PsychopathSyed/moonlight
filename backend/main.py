@@ -126,6 +126,24 @@ async def root():
     }
 
 # Health check endpoint
+@app.get("/debug/create-tables")
+async def debug_create_tables():
+    """
+    Temporary diagnostic endpoint: runs create_all() synchronously and returns
+    the real exception (if any) directly, instead of relying on Vercel log digging.
+    Remove once the table-creation issue is confirmed fixed.
+    """
+    import traceback
+    try:
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        rows = db.execute(text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")).fetchall()
+        db.close()
+        return {"success": True, "tables": [r[0] for r in rows]}
+    except Exception as e:
+        return {"success": False, "error_type": type(e).__name__, "error": str(e), "traceback": traceback.format_exc()}
+
+
 @app.get("/health")
 async def health_check():
     """
