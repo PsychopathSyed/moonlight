@@ -32,7 +32,7 @@ import {
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { useOutletContext } from 'react-router-dom';
-import api from '../api';
+import api from '../../api';
 
 const emptyVendorForm = { name: '', phone: '', address: '', email: '', contact_person: '' };
 const emptyPurchaseForm = {

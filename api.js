@@ -1,6 +1,6 @@
 // API Configuration for Frontend
-// Use api subdomain for cleaner access
-const API_BASE_URL = 'https://api.haditex.net';
+// Set VITE_API_URL in Vercel project settings to point at the deployed backend
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.haditex.net';
 
 // Local storage key for JWT token
 const TOKEN_KEY = 'event_erp_token';
@@ -207,6 +207,94 @@ const api = {
       upcoming: '/api/dashboard/upcoming',
       overdue: '/api/dashboard/overdue',
       recent: '/api/dashboard/recent'
+    },
+    quotations: {
+      list: '/api/quotations',
+      create: '/api/quotations',
+      get: (id) => `/api/quotations/${id}`,
+      update: (id) => `/api/quotations/${id}`,
+      delete: (id) => `/api/quotations/${id}`
+    },
+    invoices: {
+      list: '/api/invoices',
+      create: '/api/invoices',
+      get: (id) => `/api/invoices/${id}`,
+      update: (id) => `/api/invoices/${id}`,
+      delete: (id) => `/api/invoices/${id}`,
+      payments: (id) => `/api/invoices/${id}/payments`
+    },
+    rentals: {
+      list: '/api/rentals',
+      create: '/api/rentals',
+      get: (id) => `/api/rentals/${id}`,
+      update: (id) => `/api/rentals/${id}`,
+      dispatch: (id) => `/api/rentals/${id}/dispatch`,
+      return: (id) => `/api/rentals/${id}/return`,
+      upcoming: '/api/rentals/upcoming',
+      active: '/api/rentals/active'
+    },
+    returns: {
+      list: '/api/returns',
+      create: '/api/returns',
+      get: (id) => `/api/returns/${id}`,
+      process: (id) => `/api/returns/${id}/process`
+    },
+    ledger: {
+      list: '/api/ledger',
+      customer: (id) => `/api/ledger/customers/${id}`,
+      transactions: (id) => `/api/ledger/customers/${id}/transactions`
+    },
+    expenses: {
+      list: '/api/expenses',
+      create: '/api/expenses',
+      get: (id) => `/api/expenses/${id}`,
+      update: (id) => `/api/expenses/${id}`,
+      delete: (id) => `/api/expenses/${id}`,
+      categories: '/api/expenses/categories'
+    },
+    hr: {
+      employees: '/api/hr/employees',
+      employee: (id) => `/api/hr/employees/${id}`,
+      advances: '/api/hr/advances',
+      salary: '/api/hr/salary',
+      processSalary: '/api/hr/salary/process'
+    },
+    purchase: {
+      vendors: '/api/purchase/vendors',
+      vendor: (id) => `/api/purchase/vendors/${id}`,
+      purchases: '/api/purchase/purchases',
+      purchase: (id) => `/api/purchase/purchases/${id}`
+    },
+    partners: {
+      list: '/api/partners',
+      create: '/api/partners',
+      get: (id) => `/api/partners/${id}`,
+      update: (id) => `/api/partners/${id}`,
+      delete: (id) => `/api/partners/${id}`,
+      rentals: '/api/partners/rentals',
+      payables: '/api/partners/payables'
+    },
+    consumables: {
+      list: '/api/consumables',
+      reorder: '/api/consumables/reorder',
+      usage: '/api/consumables/usage'
+    },
+    reports: {
+      revenue: '/api/reports/revenue',
+      inventory: '/api/reports/inventory',
+      rentals: '/api/reports/rentals',
+      customers: '/api/reports/customers'
+    },
+    notifications: {
+      list: '/api/notifications',
+      markRead: (id) => `/api/notifications/${id}/read`,
+      markAllRead: '/api/notifications/read-all',
+      settings: '/api/notifications/settings'
+    },
+    settings: {
+      all: '/api/settings',
+      get: (key) => `/api/settings/${key}`,
+      update: (key) => `/api/settings/${key}`
     }
   }
 };

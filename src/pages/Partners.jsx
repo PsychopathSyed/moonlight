@@ -35,7 +35,7 @@ import {
   CheckCircle as PaidIcon,
 } from '@mui/icons-material';
 import { useOutletContext } from 'react-router-dom';
-import api from '../api';
+import api from '../../api';
 
 const emptyPartnerForm = {
   name: '', phone: '', address: '', email: '',
