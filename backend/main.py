@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
+import re
 
 from config import settings
 from sqlalchemy import text
@@ -167,6 +168,26 @@ async def health_check():
             detail="Service unavailable"
         )
 
+CORS_ORIGIN_REGEX = re.compile(r"^https://moonlight[a-z0-9-]*\.vercel\.app$")
+
+
+def _cors_headers_for(request) -> dict:
+    """
+    Manually compute CORS headers for a given request's Origin.
+    Needed because responses built inside exception handling (whether via
+    @app.exception_handler or BaseHTTPMiddleware) unreliably pass back through
+    CORSMiddleware's own header injection in Starlette - so we don't rely on it here.
+    """
+    origin = request.headers.get("origin")
+    if origin and (origin in settings.CORS_ORIGINS or CORS_ORIGIN_REGEX.match(origin)):
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return {}
+
+
 # Global exception handling, implemented as middleware (not @app.exception_handler)
 # so the response still passes back out through CORSMiddleware. A handler registered
 # via @app.exception_handler(Exception) is wired into Starlette's ServerErrorMiddleware,
@@ -185,7 +206,8 @@ async def catch_exceptions_middleware(request, call_next):
                     "code": "INTERNAL_ERROR",
                     "message": "An unexpected error occurred"
                 }
-            }
+            },
+            headers=_cors_headers_for(request)
         )
 # Run server
 if __name__ == "__main__":
