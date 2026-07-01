@@ -1,6 +1,6 @@
 // API Configuration for Frontend
 // Set VITE_API_URL in Vercel project settings to point at the deployed backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://api.haditex.net';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://api.haditex.net').replace(/\/+$/, '');
 
 // Local storage key for JWT token
 const TOKEN_KEY = 'event_erp_token';
