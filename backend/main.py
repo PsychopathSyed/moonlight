@@ -9,6 +9,7 @@ import uvicorn
 import logging
 
 from config import settings
+from sqlalchemy import text
 from database.connection import engine, SessionLocal, Base
 from routers import (
     auth, inventory, customers,
@@ -126,7 +127,7 @@ async def health_check():
     try:
         # Test database connection
         db = SessionLocal()
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
 
         return {
