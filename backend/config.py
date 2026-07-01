@@ -25,8 +25,14 @@ class Settings:
     REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 
     # CORS
-    import ast
-    CORS_ORIGINS = ast.literal_eval(os.getenv("CORS_ORIGINS", '["http://localhost:3000", "http://localhost:5173"]'))
+    _cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173")
+    try:
+        import ast
+        CORS_ORIGINS = ast.literal_eval(_cors_raw)
+        if not isinstance(CORS_ORIGINS, list):
+            raise ValueError
+    except (ValueError, SyntaxError):
+        CORS_ORIGINS = [origin.strip() for origin in _cors_raw.split(",") if origin.strip()]
 
 # Create settings instance
 settings = Settings()
