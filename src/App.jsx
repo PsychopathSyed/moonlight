@@ -18,6 +18,7 @@ import Ledger from './pages/Ledger';
 import Expenses from './pages/Expenses';
 import Consumables from './pages/Consumables';
 import HR from './pages/HR';
+import GatePass from './pages/GatePass';
 import Notifications from './pages/Notifications';
 import theme from './theme';
 
@@ -153,6 +154,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Consumables />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="gatepass-in"
+              element={
+                <ProtectedRoute>
+                  <GatePass type="in" key="in" />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="gatepass-out"
+              element={
+                <ProtectedRoute>
+                  <GatePass type="out" key="out" />
                 </ProtectedRoute>
               }
             />

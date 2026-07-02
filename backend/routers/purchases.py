@@ -8,7 +8,7 @@ from datetime import date
 from decimal import Decimal
 
 from database.connection import get_db
-from models import Vendor, Purchase, Item
+from models import Vendor, Purchase, Item, Category
 
 router = APIRouter(prefix="/api/purchase", tags=["Purchases"])
 
@@ -36,6 +36,8 @@ def serialize_purchase(purchase: Purchase) -> dict:
         "purchase_price": float(purchase.purchase_price),
         "total_price": float(purchase.total_price),
         "purchase_date": purchase.purchase_date.isoformat(),
+        "invoice_number": purchase.invoice_number,
+        "payment_status": purchase.payment_status,
         "description": purchase.description,
         "created_at": purchase.created_at.isoformat() if purchase.created_at else None
     }
@@ -133,11 +135,49 @@ async def list_purchases(
 
 @router.post("/purchases")
 async def create_purchase(purchase_data: dict, db: Session = Depends(get_db)):
-    """Record a new purchase. If linked to an inventory item, increases its stock."""
+    """Record a new purchase.
+
+    If linked to an existing inventory item, increases its stock.
+    If `new_item` inventory parameters are provided instead, creates the
+    inventory item (same parameters as the inventory form) with the
+    purchased quantity as opening stock.
+    """
     try:
         quantity = int(purchase_data["quantity"])
         purchase_price = Decimal(str(purchase_data["purchase_price"]))
         item_id = purchase_data.get("item_id")
+        vendor = db.query(Vendor).filter(Vendor.id == purchase_data["vendor_id"]).first() if purchase_data.get("vendor_id") else None
+
+        new_item_data = purchase_data.get("new_item")
+        if not item_id and new_item_data:
+            category = None
+            category_name = (new_item_data.get("category_name") or "").strip()
+            if category_name:
+                category = db.query(Category).filter(Category.name == category_name).first()
+                if not category:
+                    category = Category(name=category_name)
+                    db.add(category)
+                    db.flush()
+
+            item = Item(
+                name=new_item_data.get("name") or purchase_data.get("item_name"),
+                category_id=category.id if category else None,
+                description=purchase_data.get("description"),
+                total_quantity=quantity,
+                available_quantity=quantity,
+                rented_quantity=0,
+                tag=new_item_data.get("tag"),
+                per_day_rate=Decimal(str(new_item_data.get("per_day_rate", 0) or 0)),
+                per_event_rate=Decimal(str(new_item_data.get("per_event_rate", 0) or 0)),
+                min_stock_level=int(new_item_data.get("min_stock_level") or 5),
+                item_type=new_item_data.get("item_type", "rentable"),
+                unit=new_item_data.get("unit", "pcs"),
+                supplier=vendor.name if vendor else None,
+                is_active=True,
+            )
+            db.add(item)
+            db.flush()
+            item_id = item.id
 
         purchase = Purchase(
             vendor_id=purchase_data.get("vendor_id"),
@@ -147,11 +187,13 @@ async def create_purchase(purchase_data: dict, db: Session = Depends(get_db)):
             purchase_price=purchase_price,
             total_price=purchase_price * quantity,
             purchase_date=date.fromisoformat(purchase_data.get("purchase_date", date.today().isoformat())),
+            invoice_number=purchase_data.get("invoice_number"),
+            payment_status=purchase_data.get("payment_status", "paid"),
             description=purchase_data.get("description")
         )
         db.add(purchase)
 
-        if item_id:
+        if item_id and not new_item_data:
             item = db.query(Item).filter(Item.id == item_id).first()
             if item:
                 item.total_quantity += quantity

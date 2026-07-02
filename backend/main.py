@@ -17,7 +17,8 @@ from routers import (
     orders, dashboard, invoices, quotations,
     payments, rentals, returns,
     expenses, hr, ledger,
-    purchases, partners,
+    purchases, partners, gatepass,
+    notifications, reports,
     placeholders as other_routers
 )
 
@@ -74,6 +75,15 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("Startup table creation failed")
 
+    # create_all() never alters existing tables, so columns added to the
+    # Purchase model after the table first shipped need explicit ALTERs
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(100)"))
+            conn.execute(text("ALTER TABLE purchases ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20)"))
+    except Exception:
+        logger.exception("Startup column migration failed")
+
     if settings.ENVIRONMENT == "development":
         try:
             from database.connection import init_db
@@ -108,6 +118,10 @@ app.include_router(hr.router, tags=["HR"])
 app.include_router(ledger.router, tags=["Ledger"])
 app.include_router(purchases.router, tags=["Purchases"])
 app.include_router(partners.router, tags=["Partners"])
+app.include_router(gatepass.router, tags=["Gate Pass"])
+app.include_router(notifications.router, tags=["Notifications"])
+app.include_router(reports.router, tags=["Reports"])
+app.include_router(other_routers.settings_router, tags=["Settings"])
 
 # Placeholder routers for remaining modules
 app.include_router(other_routers.router, tags=["Other Modules"])

@@ -303,10 +303,48 @@ class Purchase(Base):
     purchase_price = Column(DECIMAL(10, 2), nullable=False)
     total_price = Column(DECIMAL(10, 2), nullable=False)
     purchase_date = Column(Date, nullable=False, index=True)
+    invoice_number = Column(String(100))
+    payment_status = Column(String(20), default='paid')
     description = Column(Text)
     created_at = Column(DateTime, default=func.now(), nullable=False)
 
     vendor = relationship("Vendor", back_populates="purchases")
+
+class GatePass(Base, TimestampMixin):
+    """
+    Gate passes for inward/outward movement of items
+    """
+    __tablename__ = 'gate_passes'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gate_pass_number = Column(String(50), unique=True, nullable=False, index=True)
+    type = Column(String(10), nullable=False, index=True)  # 'in' or 'out'
+    gate_pass_date = Column(Date, default=date.today, nullable=False, index=True)
+    person_name = Column(String(200))
+    vehicle_number = Column(String(50))
+    purpose = Column(String(200))
+    reference_number = Column(String(100))
+    status = Column(String(20), default='completed', nullable=False)
+    remarks = Column(Text)
+
+    items = relationship("GatePassItem", back_populates="gate_pass", cascade="all, delete-orphan")
+
+class GatePassItem(Base):
+    """
+    Individual items on a gate pass
+    """
+    __tablename__ = 'gate_pass_items'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    gate_pass_id = Column(UUID(as_uuid=True), ForeignKey('gate_passes.id', ondelete="CASCADE"))
+    item_id = Column(UUID(as_uuid=True), ForeignKey('items.id'))
+    item_name = Column(String(200))
+    quantity = Column(Integer, nullable=False)
+    unit = Column(String(20))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+
+    gate_pass = relationship("GatePass", back_populates="items")
 
 class Partner(Base, TimestampMixin):
     """

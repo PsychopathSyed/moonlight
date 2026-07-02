@@ -10,25 +10,18 @@ import {
   Paper,
   Avatar,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
   Badge,
   List,
   ListItem,
   ListItemText,
   ListItemIcon,
   Divider,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Notifications as BellIcon,
@@ -38,50 +31,50 @@ import {
   AttachMoney as PaymentIcon,
   TrendingUp as TrendIcon,
   Warning as AlertIcon,
-  Check as ReadIcon,
-  Delete as DeleteIcon,
   MarkEmailRead as MarkAllIcon,
-  Settings as SettingsIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useOutletContext } from 'react-router-dom';
+import api from '../../api';
 
 export default function Notifications() {
   const { setHeaderActions } = useOutletContext();
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [openSettings, setOpenSettings] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [notifications, setNotifications] = useState([]);
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [lowStockAlerts, setLowStockAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const notifications = [
-    { id: 1, type: 'dispatch', title: 'Dispatch Reminder', message: 'ORD-001: Ali Corporation items to dispatch today', date: '2026-04-20 09:00', order: 'ORD-001', status: 'unread' },
-    { id: 2, type: 'return', title: 'Return Due', message: 'ORD-002: Tech Events Ltd items due for return', date: '2026-04-20 18:00', order: 'ORD-002', status: 'unread' },
-    { id: 3, type: 'payment', title: 'Payment Reminder', message: 'INV-003: Wedding Planners payment overdue', date: '2026-04-19 10:00', invoice: 'INV-003', amount: 75000, status: 'unread' },
-    { id: 4, type: 'dispatch', title: 'Dispatch Reminder', message: 'ORD-004: Party Makers items dispatch tomorrow', date: '2026-04-21 09:00', order: 'ORD-004', status: 'unread' },
-    { id: 5, type: 'alert', title: 'Low Stock Alert', message: 'Solder Wire: Only 8 rolls remaining (min: 10)', date: '2026-04-18 14:00', item: 'Solder Wire', status: 'read' },
-    { id: 6, type: 'return', title: 'Return Due', message: 'ORD-003: Wedding Planners items returned successfully', date: '2026-04-15 16:00', order: 'ORD-003', status: 'read' },
-    { id: 7, type: 'payment', title: 'Payment Received', message: 'INV-001: Ali Corporation paid PKR 20,000', date: '2026-04-18 11:00', invoice: 'INV-001', amount: 20000, status: 'read' },
-    { id: 8, type: 'trend', title: 'Revenue Alert', message: 'Monthly revenue exceeded target by 15%', date: '2026-04-17 08:00', status: 'read' },
-  ];
-
-  const upcomingEvents = [
-    { id: 1, order: 'ORD-001', customer: 'Ali Corporation', event: 'Corporate Event', dispatchDate: '2026-04-20', returnDate: '2026-04-22', status: 'upcoming' },
-    { id: 2, order: 'ORD-004', customer: 'Party Makers', event: 'Conference', dispatchDate: '2026-04-21', returnDate: '2026-04-23', status: 'upcoming' },
-    { id: 3, order: 'ORD-005', customer: 'Event Pro', event: 'Wedding Reception', dispatchDate: '2026-04-25', returnDate: '2026-04-27', status: 'upcoming' },
-  ];
-
-  const pendingPayments = [
-    { id: 1, invoice: 'INV-003', customer: 'Wedding Planners', amount: 75000, dueDate: '2026-04-15', daysOverdue: 5, status: 'overdue' },
-    { id: 2, invoice: 'INV-004', customer: 'Party Makers', amount: 95000, dueDate: '2026-04-20', daysOverdue: 0, status: 'due' },
-    { id: 3, invoice: 'INV-005', customer: 'Event Pro', amount: 45000, dueDate: '2026-04-22', daysOverdue: 0, status: 'upcoming' },
-  ];
-
-  const lowStockAlerts = [
-    { id: 1, item: 'Solder Wire', category: 'Consumable', current: 8, minimum: 10, unit: 'rolls', percentage: 80 },
-    { id: 2, item: 'Moving Head Beam', category: 'Lights', current: 2, minimum: 4, unit: 'pcs', percentage: 50 },
-    { id: 3, item: 'XLR Connectors', category: 'Tool', current: 8, minimum: 15, unit: 'pcs', percentage: 53 },
-  ];
+  const loadNotifications = async () => {
+    const response = await api.get('/api/notifications');
+    const data = response.data || {};
+    setNotifications(data.notifications || []);
+    setUpcomingEvents(data.upcoming_events || []);
+    setPendingPayments(data.pending_payments || []);
+    setLowStockAlerts(data.low_stock || []);
+  };
 
   useEffect(() => {
-    // Set header actions
+    setLoading(true);
+    setError('');
+    loadNotifications()
+      .catch(() => setError('Failed to load notifications. Please check your connection.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.post('/api/notifications/read-all');
+      setNotifications((prev) => prev.map((n) => ({ ...n, status: 'read' })));
+    } catch {
+      setError('Failed to mark notifications as read.');
+    }
+  };
+
+  useEffect(() => {
     if (setHeaderActions) {
       setHeaderActions(
         <>
@@ -110,12 +103,14 @@ export default function Notifications() {
             variant="contained"
             startIcon={<MarkAllIcon />}
             size="small"
+            onClick={handleMarkAllRead}
           >
             Mark All Read
           </Button>
         </>
       );
     }
+    return () => setHeaderActions && setHeaderActions(null);
   }, [searchTerm, selectedFilter, setHeaderActions]);
 
   const getNotificationIcon = (type) => {
@@ -140,6 +135,12 @@ export default function Notifications() {
     }
   };
 
+  const visibleNotifications = notifications.filter((n) => {
+    if (selectedFilter !== 'all' && n.type !== selectedFilter) return false;
+    if (searchTerm && !(n.title + ' ' + n.message).toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    return true;
+  });
+
   const unreadCount = notifications.filter(n => n.status === 'unread').length;
 
   return (
@@ -159,86 +160,48 @@ export default function Notifications() {
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => loadNotifications().catch(() => setError('Failed to refresh.'))}
+            sx={{ borderRadius: 8 }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={<MarkAllIcon />}
+            onClick={handleMarkAllRead}
             sx={{ borderRadius: 8 }}
           >
             Mark All Read
           </Button>
-          <Button
-            variant="outlined"
-            startIcon={<SettingsIcon />}
-            onClick={() => setOpenSettings(true)}
-            sx={{ borderRadius: 8 }}
-          >
-            Settings
-          </Button>
         </Box>
       </Box>
 
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <DispatchIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Upcoming Dispatch
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                {upcomingEvents.length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <ReturnIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Returns Due
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                {notifications.filter(n => n.type === 'return' && n.status === 'unread').length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <PaymentIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Payment Overdue
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                {pendingPayments.filter(p => p.status === 'overdue').length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <AlertIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Low Stock Alerts
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                {lowStockAlerts.length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {[
+          { label: 'Upcoming Dispatch', value: upcomingEvents.length, icon: <DispatchIcon />, bg: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' },
+          { label: 'Returns Due', value: notifications.filter(n => n.type === 'return').length, icon: <ReturnIcon />, bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+          { label: 'Payment Overdue', value: pendingPayments.filter(p => p.status === 'overdue').length, icon: <PaymentIcon />, bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' },
+          { label: 'Low Stock Alerts', value: lowStockAlerts.length, icon: <AlertIcon />, bg: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)' },
+        ].map((stat) => (
+          <Grid item xs={12} sm={6} md={3} key={stat.label}>
+            <Card sx={{ background: stat.bg }}>
+              <CardContent>
+                <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
+                  {stat.icon}
+                </Avatar>
+                <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
+                  {stat.label}
+                </Typography>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
+                  {stat.value}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       <Grid container spacing={3}>
@@ -249,67 +212,66 @@ export default function Notifications() {
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   Recent Notifications
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Select size="small" value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} sx={{ minWidth: 150 }}>
-                    <MenuItem value="all">All Types</MenuItem>
-                    <MenuItem value="dispatch">Dispatch</MenuItem>
-                    <MenuItem value="return">Returns</MenuItem>
-                    <MenuItem value="payment">Payments</MenuItem>
-                    <MenuItem value="alert">Alerts</MenuItem>
-                  </Select>
-                  <TextField
-                    placeholder="Search..."
-                    size="small"
-                    sx={{ minWidth: 200 }}
-                  />
-                </Box>
+                <Select size="small" value={selectedFilter} onChange={(e) => setSelectedFilter(e.target.value)} sx={{ minWidth: 150 }}>
+                  <MenuItem value="all">All Types</MenuItem>
+                  <MenuItem value="dispatch">Dispatch</MenuItem>
+                  <MenuItem value="return">Returns</MenuItem>
+                  <MenuItem value="payment">Payments</MenuItem>
+                  <MenuItem value="alert">Alerts</MenuItem>
+                </Select>
               </Box>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
               <List>
-                {notifications
-                  .filter(n => selectedFilter === 'all' || n.type === selectedFilter)
-                  .map((notification, index) => {
-                    const colors = getNotificationColor(notification.type);
-                    return (
-                      <React.Fragment key={notification.id}>
-                        <ListItem
-                          sx={{
-                            bgcolor: notification.status === 'unread' ? '#f8fafc' : 'transparent',
-                            borderRadius: 2,
-                            mb: 1,
-                          }}
-                        >
-                          <ListItemIcon>
-                            <Avatar sx={{ ...colors, width: 40, height: 40 }}>
-                              {getNotificationIcon(notification.type)}
-                            </Avatar>
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Typography variant="body1" fontWeight={600}>
-                                  {notification.title}
+                {visibleNotifications.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                    No notifications — you're all caught up
+                  </Typography>
+                )}
+                {visibleNotifications.map((notification, index) => {
+                  const colors = getNotificationColor(notification.type);
+                  return (
+                    <React.Fragment key={notification.id}>
+                      <ListItem
+                        sx={{
+                          bgcolor: notification.status === 'unread' ? '#f8fafc' : 'transparent',
+                          borderRadius: 2,
+                          mb: 1,
+                        }}
+                      >
+                        <ListItemIcon>
+                          <Avatar sx={{ ...colors, width: 40, height: 40 }}>
+                            {getNotificationIcon(notification.type)}
+                          </Avatar>
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body1" fontWeight={600}>
+                                {notification.title}
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {notification.status === 'unread' && (
+                                  <Chip label="New" size="small" sx={{ bgcolor: '#6366f1', color: '#ffffff', fontWeight: 600 }} />
+                                )}
+                                <Typography variant="caption" color="text.secondary">
+                                  {notification.date}
                                 </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  {notification.status === 'unread' && (
-                                    <Chip label="New" size="small" sx={{ bgcolor: '#6366f1', color: '#ffffff', fontWeight: 600 }} />
-                                  )}
-                                  <Typography variant="caption" color="text.secondary">
-                                    {notification.date}
-                                  </Typography>
-                                </Box>
                               </Box>
-                            }
-                            secondary={notification.message}
-                          />
-                          <IconButton size="small" color="primary">
-                            <ReadIcon />
-                          </IconButton>
-                        </ListItem>
-                        {index < notifications.length - 1 && <Divider />}
-                      </React.Fragment>
-                    );
-                  })}
+                            </Box>
+                          }
+                          secondary={notification.message}
+                        />
+                      </ListItem>
+                      {index < visibleNotifications.length - 1 && <Divider />}
+                    </React.Fragment>
+                  );
+                })}
               </List>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -321,6 +283,9 @@ export default function Notifications() {
                 Upcoming Events
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {upcomingEvents.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">No upcoming events</Typography>
+                )}
                 {upcomingEvents.map((event) => (
                   <Paper key={event.id} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 8 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -351,6 +316,9 @@ export default function Notifications() {
                 Pending Payments
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {pendingPayments.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">No pending payments</Typography>
+                )}
                 {pendingPayments.map((payment) => (
                   <Paper key={payment.id} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 8 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -368,7 +336,7 @@ export default function Notifications() {
                     <Typography variant="body1">{payment.customer}</Typography>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                       <Box>
-                        <Typography variant="caption" color="text.secondary">Due: {payment.dueDate}</Typography>
+                        <Typography variant="caption" color="text.secondary">Due: {payment.dueDate || '-'}</Typography>
                         {payment.daysOverdue > 0 && (
                           <Typography variant="caption" display="block" color="#ef4444">
                             {payment.daysOverdue} days overdue
@@ -386,69 +354,6 @@ export default function Notifications() {
           </Card>
         </Grid>
       </Grid>
-
-      <Dialog open={openSettings} onClose={() => setOpenSettings(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Notification Settings</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Configure when and how you receive notifications
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Notification Types</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>Dispatch Reminders</Typography>
-                <Chip label="Enabled" size="small" sx={{ bgcolor: '#dcfce7', color: '#166534', fontWeight: 600 }} />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>Return Alerts</Typography>
-                <Chip label="Enabled" size="small" sx={{ bgcolor: '#dcfce7', color: '#166534', fontWeight: 600 }} />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>Payment Reminders</Typography>
-                <Chip label="Enabled" size="small" sx={{ bgcolor: '#dcfce7', color: '#166534', fontWeight: 600 }} />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>Low Stock Alerts</Typography>
-                <Chip label="Enabled" size="small" sx={{ bgcolor: '#dcfce7', color: '#166534', fontWeight: 600 }} />
-              </Box>
-            </Box>
-
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 2 }}>Timing</Typography>
-            <Select size="small" fullWidth defaultValue="1day">
-              <MenuItem value="1day">1 day before</MenuItem>
-              <MenuItem value="2days">2 days before</MenuItem>
-              <MenuItem value="3days">3 days before</MenuItem>
-              <MenuItem value="1week">1 week before</MenuItem>
-            </Select>
-
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, mt: 2 }}>Channels</Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>Dashboard Alerts</Typography>
-                <Chip label="Enabled" size="small" sx={{ bgcolor: '#dcfce7', color: '#166534', fontWeight: 600 }} />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>Email Notifications</Typography>
-                <Chip label="Disabled" size="small" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 600 }} />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>SMS Alerts</Typography>
-                <Chip label="Disabled" size="small" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 600 }} />
-              </Box>
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenSettings(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
-          >
-            Save Settings
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

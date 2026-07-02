@@ -22,6 +22,9 @@ import {
   DialogActions,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,7 +40,11 @@ import api from '../../api';
 const emptyVendorForm = { name: '', phone: '', address: '', email: '', contact_person: '' };
 const emptyPurchaseForm = {
   vendor_id: '', item_id: '', item_name: '', purchase_date: '',
-  description: '', quantity: '', purchase_price: ''
+  description: '', quantity: '', purchase_price: '',
+  invoice_number: '', payment_status: 'paid',
+  // inventory parameters (same as the inventory form) used when the product is new
+  category_name: '', item_type: 'rentable', unit: 'pcs', tag: '',
+  rate_type: 'per_day', rate: '', min_stock_level: ''
 };
 
 export default function Purchase() {
@@ -134,12 +141,27 @@ export default function Purchase() {
 
   const handleAddPurchase = async () => {
     try {
+      const isNewItem = !purchaseForm.item_id;
       await api.post(api.endpoints.purchase.purchases, {
-        ...purchaseForm,
+        vendor_id: purchaseForm.vendor_id || null,
         item_id: purchaseForm.item_id || null,
+        item_name: purchaseForm.item_name,
+        description: purchaseForm.description,
         quantity: Number(purchaseForm.quantity),
         purchase_price: Number(purchaseForm.purchase_price),
-        purchase_date: purchaseForm.purchase_date || undefined
+        purchase_date: purchaseForm.purchase_date || undefined,
+        invoice_number: purchaseForm.invoice_number || null,
+        payment_status: purchaseForm.payment_status,
+        new_item: isNewItem ? {
+          name: purchaseForm.item_name,
+          category_name: purchaseForm.category_name,
+          item_type: purchaseForm.item_type,
+          unit: purchaseForm.unit,
+          tag: purchaseForm.tag || null,
+          per_day_rate: purchaseForm.rate_type === 'per_day' ? Number(purchaseForm.rate) || 0 : 0,
+          per_event_rate: purchaseForm.rate_type === 'per_event' ? Number(purchaseForm.rate) || 0 : 0,
+          min_stock_level: purchaseForm.min_stock_level ? Number(purchaseForm.min_stock_level) : 5,
+        } : null,
       });
       setPurchaseForm(emptyPurchaseForm);
       setOpenItem(false);
@@ -401,10 +423,93 @@ export default function Purchase() {
                   onChange={(e) => setPurchaseForm({ ...purchaseForm, quantity: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Purchase Price (PKR)" fullWidth type="number" required
+                <TextField label="Purchase Price / Unit (PKR)" fullWidth type="number" required
                   value={purchaseForm.purchase_price}
                   onChange={(e) => setPurchaseForm({ ...purchaseForm, purchase_price: e.target.value })} />
               </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField label="Vendor Invoice / Bill #" fullWidth size="small"
+                  value={purchaseForm.invoice_number}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, invoice_number: e.target.value })} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Payment Status</InputLabel>
+                  <Select label="Payment Status" value={purchaseForm.payment_status}
+                    onChange={(e) => setPurchaseForm({ ...purchaseForm, payment_status: e.target.value })}>
+                    <MenuItem value="paid">Paid</MenuItem>
+                    <MenuItem value="partial">Partial</MenuItem>
+                    <MenuItem value="unpaid">Unpaid (Credit)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {!purchaseForm.item_id && (
+                <>
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      New Item — Inventory Details
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      This product is new, so it will also be added to inventory with these parameters
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField label="Category" fullWidth size="small"
+                      value={purchaseForm.category_name}
+                      onChange={(e) => setPurchaseForm({ ...purchaseForm, category_name: e.target.value })} />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Type</InputLabel>
+                      <Select label="Type" value={purchaseForm.item_type}
+                        onChange={(e) => setPurchaseForm({ ...purchaseForm, item_type: e.target.value })}>
+                        <MenuItem value="rentable">Rentable</MenuItem>
+                        <MenuItem value="consumable">Consumable</MenuItem>
+                        <MenuItem value="tool">Tool</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Unit</InputLabel>
+                      <Select label="Unit" value={purchaseForm.unit}
+                        onChange={(e) => setPurchaseForm({ ...purchaseForm, unit: e.target.value })}>
+                        {['pcs', 'kg', 'packet', 'feet', 'meter', 'liter', 'box', 'set', 'pair'].map((u) => (
+                          <MenuItem key={u} value={u}>{u}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField label="Tag / Serial" fullWidth size="small"
+                      value={purchaseForm.tag}
+                      onChange={(e) => setPurchaseForm({ ...purchaseForm, tag: e.target.value })} />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Rate Type</InputLabel>
+                      <Select label="Rate Type" value={purchaseForm.rate_type}
+                        onChange={(e) => setPurchaseForm({ ...purchaseForm, rate_type: e.target.value })}>
+                        <MenuItem value="per_day">Per Day</MenuItem>
+                        <MenuItem value="per_event">Per Event</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField label={`${purchaseForm.rate_type === 'per_day' ? 'Per Day' : 'Per Event'} Rate (PKR)`}
+                      fullWidth size="small" type="number"
+                      value={purchaseForm.rate}
+                      onChange={(e) => setPurchaseForm({ ...purchaseForm, rate: e.target.value })} />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <TextField label="Minimum Stock Level" fullWidth size="small" type="number"
+                      value={purchaseForm.min_stock_level}
+                      onChange={(e) => setPurchaseForm({ ...purchaseForm, min_stock_level: e.target.value })} />
+                  </Grid>
+                </>
+              )}
             </Grid>
           </Box>
         </DialogContent>

@@ -279,7 +279,14 @@ const api = {
       reorder: '/api/consumables/reorder',
       usage: '/api/consumables/usage'
     },
+    gatepass: {
+      list: '/api/gatepass',
+      create: '/api/gatepass',
+      get: (id) => `/api/gatepass/${id}`,
+      delete: (id) => `/api/gatepass/${id}`
+    },
     reports: {
+      summary: '/api/reports/summary',
       revenue: '/api/reports/revenue',
       inventory: '/api/reports/inventory',
       rentals: '/api/reports/rentals',

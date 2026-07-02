@@ -34,6 +34,8 @@ import {
   Description as ExpensesIcon,
   Work as HRIcon,
   Notifications as NotificationsIcon,
+  Login as GatePassInIcon,
+  Logout as GatePassOutIcon,
 } from '@mui/icons-material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -78,6 +80,8 @@ export default function Layout() {
       { text: 'Purchase', path: '/purchase' },
       { text: 'Partners', path: '/partners' },
       { text: 'Returns', path: '/returns' },
+      { text: 'Gate Pass In', path: '/gatepass-in' },
+      { text: 'Gate Pass Out', path: '/gatepass-out' },
       { text: 'Ledger', path: '/ledger' },
       { text: 'Expenses', path: '/expenses' },
       { text: 'HR & Salary', path: '/hr' },
@@ -99,6 +103,8 @@ export default function Layout() {
     { text: 'Purchase', icon: <PurchaseIcon />, path: '/purchase', badge: null },
     { text: 'Partners', icon: <PartnersIcon />, path: '/partners', badge: '3' },
     { text: 'Returns', icon: <ReturnsIcon />, path: '/returns', badge: '2' },
+    { text: 'Gate Pass In', icon: <GatePassInIcon />, path: '/gatepass-in', badge: null },
+    { text: 'Gate Pass Out', icon: <GatePassOutIcon />, path: '/gatepass-out', badge: null },
     { text: 'Ledger', icon: <LedgerIcon />, path: '/ledger', badge: '5' },
     { text: 'Expenses', icon: <ExpensesIcon />, path: '/expenses', badge: null },
     { text: 'HR & Salary', icon: <HRIcon />, path: '/hr', badge: null },

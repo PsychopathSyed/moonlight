@@ -23,7 +23,11 @@ import {
   DialogActions,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
   Badge,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,11 +36,28 @@ import {
   TrendingUp as AdvanceIcon,
   Receipt as SlipIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
   Work as RoleIcon,
-  CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
 import { useOutletContext } from 'react-router-dom';
+import api from '../../api';
+
+const emptyEmployeeForm = {
+  first_name: '', last_name: '', role: '', phone: '', cnic: '',
+  salary: '', join_date: '', address: '', status: 'active',
+};
+const emptyAdvanceForm = { employee_id: '', amount: '', reason: '', advance_date: '' };
+const emptySalaryForm = { employee_id: '', month: '', incentives: '', other_deductions: '' };
+
+const currentMonthOptions = () => {
+  const options = [];
+  const now = new Date();
+  for (let i = -1; i < 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    options.push({ value, label: d.toLocaleString('en', { month: 'long', year: 'numeric' }) });
+  }
+  return options;
+};
 
 export default function HR() {
   const { setHeaderActions } = useOutletContext();
@@ -45,32 +66,41 @@ export default function HR() {
   const [openProcessSalary, setOpenProcessSalary] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [employees, setEmployees] = useState([]);
+  const [advances, setAdvances] = useState([]);
+  const [salaryProcess, setSalaryProcess] = useState([]);
+  const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
+  const [advanceForm, setAdvanceForm] = useState(emptyAdvanceForm);
+  const [salaryForm, setSalaryForm] = useState(emptySalaryForm);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const employees = [
-    { id: 1, name: 'Ahmed Khan', role: 'Technician', phone: '+92-300-1112233', salary: 45000, joinsDate: '2023-06-15', status: 'active' },
-    { id: 2, name: 'Bilal Ahmed', role: 'Driver', phone: '+92-321-4445566', salary: 35000, joinsDate: '2023-08-20', status: 'active' },
-    { id: 3, name: 'Ali Hassan', role: 'Event Manager', phone: '+92-333-6667788', salary: 55000, joinsDate: '2023-01-10', status: 'active' },
-    { id: 4, name: 'Omer Farooq', role: 'Technician', phone: '+92-300-7778899', salary: 42000, joinsDate: '2024-02-01', status: 'active' },
-    { id: 5, name: 'Saad Ali', role: 'Helper', phone: '+92-345-1234567', salary: 28000, joinsDate: '2024-03-15', status: 'inactive' },
-  ];
+  const loadEmployees = async () => {
+    const params = { page_size: 100 };
+    if (statusFilter !== 'all') params.status_filter = statusFilter;
+    const response = await api.get('/api/hr/employees', params);
+    setEmployees(response.data?.employees || []);
+  };
 
-  const advances = [
-    { id: 1, employee: 'Ahmed Khan', amount: 15000, date: '2026-04-15', reason: 'Family emergency', deducted: false, deductionMonth: null },
-    { id: 2, employee: 'Bilal Ahmed', amount: 8000, date: '2026-04-10', reason: 'Medical', deducted: false, deductionMonth: null },
-    { id: 3, employee: 'Ali Hassan', amount: 10000, date: '2026-04-05', reason: 'Personal', deducted: true, deductionMonth: 'Apr-2026' },
-    { id: 4, employee: 'Ahmed Khan', amount: 5000, date: '2026-03-20', reason: 'Rent advance', deducted: true, deductionMonth: 'Mar-2026' },
-    { id: 5, employee: 'Omer Farooq', amount: 7000, date: '2026-03-15', reason: 'Vehicle repair', deducted: true, deductionMonth: 'Mar-2026' },
-  ];
+  const loadAdvances = async () => {
+    const response = await api.get('/api/hr/advances', { page_size: 100 });
+    setAdvances(response.data?.advances || []);
+  };
 
-  const salaryProcess = [
-    { id: 1, month: 'Apr-2026', employee: 'Ahmed Khan', basic: 45000, advance: 5000, incentives: 2000, deductions: 5000, netSalary: 42000, status: 'processed', ref: 'SLP-001' },
-    { id: 2, month: 'Apr-2026', employee: 'Bilal Ahmed', basic: 35000, advance: 8000, incentives: 1500, deductions: 8000, netSalary: 28500, status: 'processed', ref: 'SLP-002' },
-    { id: 3, month: 'Apr-2026', employee: 'Ali Hassan', basic: 55000, advance: 10000, incentives: 3000, deductions: 10000, netSalary: 48000, status: 'pending', ref: 'SLP-003' },
-    { id: 4, month: 'Mar-2026', employee: 'Ahmed Khan', basic: 45000, advance: 5000, incentives: 0, deductions: 5000, netSalary: 40000, status: 'processed', ref: 'SLP-001' },
-  ];
+  const loadSalary = async () => {
+    const response = await api.get('/api/hr/salary');
+    setSalaryProcess(response.data?.salary_processes || []);
+  };
 
   useEffect(() => {
-    // Set header actions
+    setLoading(true);
+    setError('');
+    Promise.all([loadEmployees(), loadAdvances(), loadSalary()])
+      .catch(() => setError('Failed to load HR data. Please check your connection.'))
+      .finally(() => setLoading(false));
+  }, [statusFilter]);
+
+  useEffect(() => {
     if (setHeaderActions) {
       setHeaderActions(
         <>
@@ -104,10 +134,106 @@ export default function HR() {
         </>
       );
     }
+    return () => setHeaderActions && setHeaderActions(null);
   }, [searchTerm, statusFilter, setHeaderActions]);
 
+  const employeeName = (id) => {
+    const emp = employees.find((e) => e.id === id);
+    return emp ? emp.full_name : 'Unknown';
+  };
+
+  const handleAddEmployee = async () => {
+    try {
+      setError('');
+      const response = await api.post('/api/hr/employees', {
+        ...employeeForm,
+        salary: Number(employeeForm.salary),
+        join_date: employeeForm.join_date || new Date().toISOString().slice(0, 10),
+      });
+      if (response.success) {
+        setEmployeeForm(emptyEmployeeForm);
+        setOpenEmployee(false);
+        await loadEmployees();
+      } else {
+        setError(response.detail || response.message || 'Failed to save employee');
+      }
+    } catch {
+      setError('Failed to save employee. Please check your connection.');
+    }
+  };
+
+  const handleDeleteEmployee = async (employeeId) => {
+    if (!window.confirm('Delete this employee?')) return;
+    try {
+      await api.delete(`/api/hr/employees/${employeeId}`);
+      await loadEmployees();
+    } catch {
+      setError('Failed to delete employee.');
+    }
+  };
+
+  const handleAddAdvance = async () => {
+    try {
+      setError('');
+      const response = await api.post('/api/hr/advances', {
+        employee_id: advanceForm.employee_id,
+        amount: Number(advanceForm.amount),
+        reason: advanceForm.reason,
+        advance_date: advanceForm.advance_date || undefined,
+      });
+      if (response.success) {
+        setAdvanceForm(emptyAdvanceForm);
+        setOpenAdvance(false);
+        await loadAdvances();
+      } else {
+        setError(response.detail || response.message || 'Failed to record advance');
+      }
+    } catch {
+      setError('Failed to record advance. Please check your connection.');
+    }
+  };
+
+  const selectedSalaryEmployee = employees.find((e) => e.id === salaryForm.employee_id);
+  const pendingAdvanceFor = (employeeId) => advances
+    .filter((a) => a.employee_id === employeeId && !a.is_deducted)
+    .reduce((sum, a) => sum + a.amount, 0);
+
+  const salaryBasic = selectedSalaryEmployee ? selectedSalaryEmployee.salary : 0;
+  const salaryAdvance = selectedSalaryEmployee ? pendingAdvanceFor(selectedSalaryEmployee.id) : 0;
+  const salaryNet = salaryBasic + Number(salaryForm.incentives || 0) - salaryAdvance - Number(salaryForm.other_deductions || 0);
+
+  const handleProcessSalary = async () => {
+    try {
+      setError('');
+      const response = await api.post('/api/hr/salary/process', {
+        employee_id: salaryForm.employee_id,
+        month: salaryForm.month,
+        basic_salary: salaryBasic,
+        advance_deduction: salaryAdvance,
+        incentives: Number(salaryForm.incentives || 0),
+        other_deductions: Number(salaryForm.other_deductions || 0),
+        net_salary: salaryNet,
+        status: 'processed',
+      });
+      if (response.success) {
+        setSalaryForm(emptySalaryForm);
+        setOpenProcessSalary(false);
+        await Promise.all([loadSalary(), loadAdvances()]);
+      } else {
+        setError(response.detail || response.message || 'Failed to process salary');
+      }
+    } catch {
+      setError('Failed to process salary. Please check your connection.');
+    }
+  };
+
+  const visibleEmployees = employees.filter((e) =>
+    !searchTerm || e.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.role || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const totalSalary = employees.filter(e => e.status === 'active').reduce((sum, e) => sum + e.salary, 0);
-  const totalAdvances = advances.filter(a => !a.deducted).reduce((sum, a) => sum + a.amount, 0);
+  const totalAdvances = advances.filter(a => !a.is_deducted).reduce((sum, a) => sum + a.amount, 0);
   const activeEmployees = employees.filter(e => e.status === 'active').length;
 
   return (
@@ -148,6 +274,8 @@ export default function HR() {
           </Button>
         </Box>
       </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
@@ -220,10 +348,16 @@ export default function HR() {
           <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
             Employee Master
           </Typography>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
           <TableContainer>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                  <TableCell sx={{ fontWeight: 600 }}>Emp #</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Role</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Phone</TableCell>
@@ -234,9 +368,17 @@ export default function HR() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {employees.map((employee) => (
+                {visibleEmployees.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ color: '#64748b', py: 4 }}>
+                      No employees added yet
+                    </TableCell>
+                  </TableRow>
+                )}
+                {visibleEmployees.map((employee) => (
                   <TableRow key={employee.id} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{employee.name}</TableCell>
+                    <TableCell>{employee.employee_number}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{employee.full_name}</TableCell>
                     <TableCell>
                       <Chip
                         label={employee.role}
@@ -245,11 +387,11 @@ export default function HR() {
                         sx={{ bgcolor: '#e0e7ff', color: '#4338ca', fontWeight: 600 }}
                       />
                     </TableCell>
-                    <TableCell>{employee.phone}</TableCell>
+                    <TableCell>{employee.phone || '-'}</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#6366f1' }}>
                       PKR {employee.salary.toLocaleString()}
                     </TableCell>
-                    <TableCell>{employee.joinsDate}</TableCell>
+                    <TableCell>{employee.join_date}</TableCell>
                     <TableCell>
                       <Chip
                         label={employee.status}
@@ -262,10 +404,7 @@ export default function HR() {
                       />
                     </TableCell>
                     <TableCell>
-                      <IconButton size="small" color="primary">
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" color="error">
+                      <IconButton size="small" color="error" onClick={() => handleDeleteEmployee(employee.id)}>
                         <DeleteIcon />
                       </IconButton>
                     </TableCell>
@@ -274,6 +413,7 @@ export default function HR() {
               </TableBody>
             </Table>
           </TableContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -286,9 +426,7 @@ export default function HR() {
                   Salary Processing
                 </Typography>
                 <Badge badgeContent={salaryProcess.filter(s => s.status === 'pending').length} color="error">
-                  <Button variant="outlined" size="small" sx={{ borderRadius: 8 }}>
-                    View All
-                  </Button>
+                  <SlipIcon sx={{ color: '#64748b' }} />
                 </Badge>
               </Box>
               <TableContainer>
@@ -307,16 +445,23 @@ export default function HR() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
+                    {salaryProcess.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} align="center" sx={{ color: '#64748b', py: 4 }}>
+                          No salaries processed yet
+                        </TableCell>
+                      </TableRow>
+                    )}
                     {salaryProcess.map((process) => (
                       <TableRow key={process.id} hover>
-                        <TableCell sx={{ fontWeight: 600 }}>{process.ref}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{process.reference_number}</TableCell>
                         <TableCell>{process.month}</TableCell>
-                        <TableCell>{process.employee}</TableCell>
-                        <TableCell>PKR {process.basic.toLocaleString()}</TableCell>
-                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>PKR {process.advance.toLocaleString()}</TableCell>
+                        <TableCell>{employeeName(process.employee_id)}</TableCell>
+                        <TableCell>PKR {process.basic_salary.toLocaleString()}</TableCell>
+                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>PKR {process.advance_deduction.toLocaleString()}</TableCell>
                         <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>PKR {process.incentives.toLocaleString()}</TableCell>
-                        <TableCell sx={{ color: '#ef4444', fontWeight: 600 }}>PKR {process.deductions.toLocaleString()}</TableCell>
-                        <TableCell sx={{ fontWeight: 700, color: '#6366f1' }}>PKR {process.netSalary.toLocaleString()}</TableCell>
+                        <TableCell sx={{ color: '#ef4444', fontWeight: 600 }}>PKR {process.other_deductions.toLocaleString()}</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#6366f1' }}>PKR {process.net_salary.toLocaleString()}</TableCell>
                         <TableCell>
                           <Chip
                             label={process.status}
@@ -344,21 +489,26 @@ export default function HR() {
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   Advances & Deductions
                 </Typography>
-                <Badge badgeContent={advances.filter(a => !a.deducted).length} color="error">
+                <Badge badgeContent={advances.filter(a => !a.is_deducted).length} color="error">
                   <AdvanceIcon />
                 </Badge>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {advances.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    No advances recorded
+                  </Typography>
+                )}
                 {advances.slice(0, 6).map((advance) => (
                   <Paper key={advance.id} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 8 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Typography variant="body1" fontWeight={600}>{advance.employee}</Typography>
+                      <Typography variant="body1" fontWeight={600}>{employeeName(advance.employee_id)}</Typography>
                       <Chip
-                        label={advance.deducted ? 'Deducted' : 'Pending'}
+                        label={advance.is_deducted ? 'Deducted' : 'Pending'}
                         size="small"
                         sx={{
-                          bgcolor: advance.deducted ? '#dcfce7' : '#fef3c7',
-                          color: advance.deducted ? '#166534' : '#92400e',
+                          bgcolor: advance.is_deducted ? '#dcfce7' : '#fef3c7',
+                          color: advance.is_deducted ? '#166534' : '#92400e',
                           fontWeight: 600,
                         }}
                       />
@@ -366,11 +516,11 @@ export default function HR() {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                       <Box>
                         <Typography variant="caption" color="text.secondary">
-                          {advance.date} • {advance.reason}
+                          {advance.advance_date} • {advance.reason || '-'}
                         </Typography>
-                        {advance.deductionMonth && (
+                        {advance.deduction_month && (
                           <Typography variant="caption" display="block" color="#10b981">
-                            Deducted: {advance.deductionMonth}
+                            Deducted: {advance.deduction_month}
                           </Typography>
                         )}
                       </Box>
@@ -392,38 +542,62 @@ export default function HR() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <TextField label="Full Name" fullWidth required />
+                <TextField label="First Name" fullWidth required
+                  value={employeeForm.first_name}
+                  onChange={(e) => setEmployeeForm({ ...employeeForm, first_name: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <Select label="Role" fullWidth size="small" defaultValue="" displayEmpty>
-                  <MenuItem value="" disabled>Select Role</MenuItem>
-                  <MenuItem value="Technician">Technician</MenuItem>
-                  <MenuItem value="Driver">Driver</MenuItem>
-                  <MenuItem value="Event Manager">Event Manager</MenuItem>
-                  <MenuItem value="Helper">Helper</MenuItem>
-                  <MenuItem value="Admin">Admin</MenuItem>
-                </Select>
+                <TextField label="Last Name" fullWidth required
+                  value={employeeForm.last_name}
+                  onChange={(e) => setEmployeeForm({ ...employeeForm, last_name: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Phone Number" fullWidth required />
+                <FormControl fullWidth size="small">
+                  <InputLabel>Role</InputLabel>
+                  <Select label="Role" value={employeeForm.role}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, role: e.target.value })}>
+                    <MenuItem value="Technician">Technician</MenuItem>
+                    <MenuItem value="Driver">Driver</MenuItem>
+                    <MenuItem value="Event Manager">Event Manager</MenuItem>
+                    <MenuItem value="Helper">Helper</MenuItem>
+                    <MenuItem value="Admin">Admin</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="CNIC" fullWidth placeholder="xxxxx-xxxxxxx-x" />
+                <TextField label="Phone Number" fullWidth
+                  value={employeeForm.phone}
+                  onChange={(e) => setEmployeeForm({ ...employeeForm, phone: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Monthly Salary (PKR)" fullWidth type="number" required />
+                <TextField label="CNIC" fullWidth placeholder="xxxxx-xxxxxxx-x"
+                  value={employeeForm.cnic}
+                  onChange={(e) => setEmployeeForm({ ...employeeForm, cnic: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Join Date" fullWidth type="date" InputLabelProps={{ shrink: true }} />
+                <TextField label="Monthly Salary (PKR)" fullWidth type="number" required
+                  value={employeeForm.salary}
+                  onChange={(e) => setEmployeeForm({ ...employeeForm, salary: e.target.value })} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField label="Join Date" fullWidth type="date" InputLabelProps={{ shrink: true }}
+                  value={employeeForm.join_date}
+                  onChange={(e) => setEmployeeForm({ ...employeeForm, join_date: e.target.value })} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Status</InputLabel>
+                  <Select label="Status" value={employeeForm.status}
+                    onChange={(e) => setEmployeeForm({ ...employeeForm, status: e.target.value })}>
+                    <MenuItem value="active">Active</MenuItem>
+                    <MenuItem value="inactive">Inactive</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <TextField label="Address" fullWidth multiline rows={2} />
-              </Grid>
-              <Grid item xs={12}>
-                <Select label="Status" fullWidth size="small" defaultValue="active">
-                  <MenuItem value="active">Active</MenuItem>
-                  <MenuItem value="inactive">Inactive</MenuItem>
-                </Select>
+                <TextField label="Address" fullWidth multiline rows={2}
+                  value={employeeForm.address}
+                  onChange={(e) => setEmployeeForm({ ...employeeForm, address: e.target.value })} />
               </Grid>
             </Grid>
           </Box>
@@ -433,6 +607,8 @@ export default function HR() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
+            onClick={handleAddEmployee}
+            disabled={!employeeForm.first_name || !employeeForm.last_name || !employeeForm.role || !employeeForm.salary}
             sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
           >
             Add Employee
@@ -447,21 +623,24 @@ export default function HR() {
             Record advance payment - will be deducted from next salary
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-            <Select label="Select Employee" fullWidth size="small" defaultValue="" displayEmpty>
-              <MenuItem value="" disabled>Select Employee</MenuItem>
-              {employees.filter(e => e.status === 'active').map((e) => (
-                <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>
-              ))}
-            </Select>
-            <TextField label="Advance Amount (PKR)" fullWidth type="number" required />
-            <TextField label="Reason" fullWidth required placeholder="Reason for advance..." />
-            <Select label="Deduct From Month" fullWidth size="small" defaultValue="" displayEmpty>
-              <MenuItem value="" disabled>Select Month</MenuItem>
-              <MenuItem value="Apr-2026">April 2026</MenuItem>
-              <MenuItem value="May-2026">May 2026</MenuItem>
-              <MenuItem value="Jun-2026">June 2026</MenuItem>
-            </Select>
-            <TextField label="Notes" fullWidth multiline rows={2} placeholder="Additional notes..." />
+            <FormControl fullWidth size="small">
+              <InputLabel>Employee</InputLabel>
+              <Select label="Employee" value={advanceForm.employee_id}
+                onChange={(e) => setAdvanceForm({ ...advanceForm, employee_id: e.target.value })}>
+                {employees.filter(e => e.status === 'active').map((e) => (
+                  <MenuItem key={e.id} value={e.id}>{e.full_name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField label="Advance Amount (PKR)" fullWidth type="number" required
+              value={advanceForm.amount}
+              onChange={(e) => setAdvanceForm({ ...advanceForm, amount: e.target.value })} />
+            <TextField label="Reason" fullWidth required placeholder="Reason for advance..."
+              value={advanceForm.reason}
+              onChange={(e) => setAdvanceForm({ ...advanceForm, reason: e.target.value })} />
+            <TextField label="Advance Date" fullWidth type="date" InputLabelProps={{ shrink: true }}
+              value={advanceForm.advance_date}
+              onChange={(e) => setAdvanceForm({ ...advanceForm, advance_date: e.target.value })} />
           </Box>
         </DialogContent>
         <DialogActions>
@@ -469,6 +648,8 @@ export default function HR() {
           <Button
             variant="contained"
             startIcon={<AdvanceIcon />}
+            onClick={handleAddAdvance}
+            disabled={!advanceForm.employee_id || !advanceForm.amount}
             sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
           >
             Record Advance
@@ -485,38 +666,49 @@ export default function HR() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <Select label="Select Month" fullWidth size="small" defaultValue="" displayEmpty>
-                  <MenuItem value="" disabled>Select Month</MenuItem>
-                  <MenuItem value="Apr-2026">April 2026</MenuItem>
-                  <MenuItem value="May-2026">May 2026</MenuItem>
-                </Select>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Month</InputLabel>
+                  <Select label="Month" value={salaryForm.month}
+                    onChange={(e) => setSalaryForm({ ...salaryForm, month: e.target.value })}>
+                    {currentMonthOptions().map((m) => (
+                      <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Select label="Select Employee" fullWidth size="small" defaultValue="" displayEmpty>
-                  <MenuItem value="" disabled>Select Employee</MenuItem>
-                  {employees.filter(e => e.status === 'active').map((e) => (
-                    <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>
-                  ))}
-                </Select>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Employee</InputLabel>
+                  <Select label="Employee" value={salaryForm.employee_id}
+                    onChange={(e) => setSalaryForm({ ...salaryForm, employee_id: e.target.value })}>
+                    {employees.filter(e => e.status === 'active').map((e) => (
+                      <MenuItem key={e.id} value={e.id}>{e.full_name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Basic Salary" fullWidth type="number" value="45000" disabled />
+                <TextField label="Basic Salary" fullWidth type="number" value={salaryBasic} disabled />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Pending Advances" fullWidth type="number" value="5000" disabled />
+                <TextField label="Pending Advances" fullWidth type="number" value={salaryAdvance} disabled />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Incentives (PKR)" fullWidth type="number" placeholder="0" />
+                <TextField label="Incentives (PKR)" fullWidth type="number" placeholder="0"
+                  value={salaryForm.incentives}
+                  onChange={(e) => setSalaryForm({ ...salaryForm, incentives: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Other Deductions (PKR)" fullWidth type="number" placeholder="0" />
+                <TextField label="Other Deductions (PKR)" fullWidth type="number" placeholder="0"
+                  value={salaryForm.other_deductions}
+                  onChange={(e) => setSalaryForm({ ...salaryForm, other_deductions: e.target.value })} />
               </Grid>
             </Grid>
             <Paper sx={{ p: 2, bgcolor: '#f8fafc', mt: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body1" fontWeight={600}>Net Salary:</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: '#6366f1' }}>
-                  PKR 40,000
+                  PKR {salaryNet.toLocaleString()}
                 </Typography>
               </Box>
             </Paper>
@@ -527,6 +719,8 @@ export default function HR() {
           <Button
             variant="contained"
             startIcon={<SlipIcon />}
+            onClick={handleProcessSalary}
+            disabled={!salaryForm.employee_id || !salaryForm.month}
             sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
           >
             Generate Slip

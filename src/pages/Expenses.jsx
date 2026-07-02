@@ -23,22 +23,37 @@ import {
   DialogActions,
   Select,
   MenuItem,
+  FormControl,
+  InputLabel,
   FormControlLabel,
   Checkbox,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  LocalGasStation as FuelIcon,
   Restaurant as FoodIcon,
   DirectionsCar as TransportIcon,
   ShoppingBag as MiscIcon,
   AttachMoney as MoneyIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
   CalendarToday as CalendarIcon,
   Person as EmployeeIcon,
 } from '@mui/icons-material';
 import { useOutletContext } from 'react-router-dom';
+import api from '../../api';
+
+const emptyExpenseForm = {
+  expense_date: '',
+  category: '',
+  description: '',
+  type: '',
+  amount: '',
+  employee_id: '',
+  is_salary_deductible: false,
+};
+
+const DEFAULT_CATEGORIES = ['Transport', 'Food', 'Electricity', 'Rent', 'Internet', 'Mobile', 'Package', 'Misc'];
 
 export default function Expenses() {
   const { setHeaderActions } = useOutletContext();
@@ -46,36 +61,40 @@ export default function Expenses() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expenses, setExpenses] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const expenses = [
-    { id: 1, date: '2026-04-20', category: 'Transport', type: 'daily', description: 'Fuel for delivery van', amount: 5000, employee: null, isDeductible: false },
-    { id: 2, date: '2026-04-19', category: 'Food', type: 'daily', description: 'Team lunch for event setup', amount: 2500, employee: null, isDeductible: false },
-    { id: 3, date: '2026-04-18', category: 'Electricity', type: 'monthly', description: 'April electricity bill', amount: 15000, employee: null, isDeductible: false },
-    { id: 4, date: '2026-04-17', category: 'Mobile', type: 'employee', description: 'Ahmed - Monthly mobile bill', amount: 1500, employee: 'Ahmed', isDeductible: true },
-    { id: 5, date: '2026-04-16', category: 'Transport', type: 'daily', description: 'Courier charges', amount: 800, employee: null, isDeductible: false },
-    { id: 6, date: '2026-04-15', category: 'Misc', type: 'daily', description: 'Office supplies', amount: 2000, employee: null, isDeductible: false },
-    { id: 7, date: '2026-04-14', category: 'Internet', type: 'monthly', description: 'April internet bill', amount: 5000, employee: null, isDeductible: false },
-    { id: 8, date: '2026-04-13', category: 'Package', type: 'employee', description: 'Bilal - Data package', amount: 2000, employee: 'Bilal', isDeductible: true },
-  ];
+  const loadExpenses = async () => {
+    const params = { page_size: 100 };
+    if (selectedCategory !== 'all') params.category = selectedCategory;
+    if (selectedType !== 'all') params.type = selectedType;
+    const response = await api.get('/api/expenses', params);
+    setExpenses(response.data?.expenses || []);
+  };
 
-  const categories = ['Transport', 'Food', 'Electricity', 'Rent', 'Internet', 'Mobile', 'Package', 'Misc'];
+  const loadEmployees = async () => {
+    const response = await api.get('/api/hr/employees', { page_size: 100 });
+    setEmployees(response.data?.employees || []);
+  };
 
-  const getCategoryIcon = (category) => {
-    switch (category) {
-      case 'Transport': return <TransportIcon />;
-      case 'Food': return <FoodIcon />;
-      case 'Electricity': return <MoneyIcon />;
-      case 'Rent': return <MoneyIcon />;
-      case 'Internet': return <MoneyIcon />;
-      case 'Mobile':
-      case 'Package':
-        return <EmployeeIcon />;
-      default: return <MiscIcon />;
-    }
+  const loadCategories = async () => {
+    const response = await api.get('/api/expenses/categories');
+    if (response.data?.categories?.length) setCategories(response.data.categories);
   };
 
   useEffect(() => {
-    // Set header actions
+    setLoading(true);
+    setError('');
+    Promise.all([loadExpenses(), loadEmployees(), loadCategories()])
+      .catch(() => setError('Failed to load expenses. Please check your connection.'))
+      .finally(() => setLoading(false));
+  }, [selectedCategory, selectedType]);
+
+  useEffect(() => {
     if (setHeaderActions) {
       setHeaderActions(
         <>
@@ -94,14 +113,9 @@ export default function Expenses() {
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
               <MenuItem value="all">All</MenuItem>
-              <MenuItem value="Transport">Transport</MenuItem>
-              <MenuItem value="Food">Food</MenuItem>
-              <MenuItem value="Electricity">Electricity</MenuItem>
-              <MenuItem value="Rent">Rent</MenuItem>
-              <MenuItem value="Internet">Internet</MenuItem>
-              <MenuItem value="Mobile">Mobile</MenuItem>
-              <MenuItem value="Package">Package</MenuItem>
-              <MenuItem value="Misc">Misc</MenuItem>
+              {categories.map((cat) => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              ))}
             </Select>
           </FormControl>
           <Button
@@ -115,7 +129,64 @@ export default function Expenses() {
         </>
       );
     }
-  }, [searchTerm, selectedCategory, setHeaderActions]);
+    return () => setHeaderActions && setHeaderActions(null);
+  }, [searchTerm, selectedCategory, categories, setHeaderActions]);
+
+  const handleAddExpense = async () => {
+    try {
+      setError('');
+      const response = await api.post('/api/expenses', {
+        expense_date: expenseForm.expense_date || undefined,
+        category: expenseForm.category,
+        description: expenseForm.description,
+        type: expenseForm.type,
+        amount: Number(expenseForm.amount),
+        employee_id: expenseForm.employee_id || null,
+        is_salary_deductible: expenseForm.is_salary_deductible,
+      });
+      if (response.success) {
+        setExpenseForm(emptyExpenseForm);
+        setOpenExpense(false);
+        await loadExpenses();
+      } else {
+        setError(response.detail || response.message || 'Failed to save expense');
+      }
+    } catch {
+      setError('Failed to save expense. Please check your connection.');
+    }
+  };
+
+  const handleDeleteExpense = async (expenseId) => {
+    if (!window.confirm('Delete this expense?')) return;
+    try {
+      await api.delete(`/api/expenses/${expenseId}`);
+      await loadExpenses();
+    } catch {
+      setError('Failed to delete expense.');
+    }
+  };
+
+  const employeeName = (id) => {
+    const emp = employees.find((e) => e.id === id);
+    return emp ? emp.full_name : null;
+  };
+
+  const getCategoryIcon = (category) => {
+    switch (category) {
+      case 'Transport': return <TransportIcon />;
+      case 'Food': return <FoodIcon />;
+      case 'Mobile':
+      case 'Package':
+        return <EmployeeIcon />;
+      case 'Misc': return <MiscIcon />;
+      default: return <MoneyIcon />;
+    }
+  };
+
+  const visibleExpenses = expenses.filter((e) =>
+    !searchTerm || (e.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.category || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const dailyExpenses = expenses.filter(e => e.type === 'daily').reduce((sum, e) => sum + e.amount, 0);
@@ -143,70 +214,31 @@ export default function Expenses() {
         </Button>
       </Box>
 
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <MoneyIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Total Expenses
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                PKR {(totalExpenses / 1000).toFixed(0)}k
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <CalendarIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Daily Expenses
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                PKR {(dailyExpenses / 1000).toFixed(0)}k
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <MoneyIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Monthly Fixed
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                PKR {(monthlyExpenses / 1000).toFixed(0)}k
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
-            <CardContent>
-              <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
-                <EmployeeIcon />
-              </Avatar>
-              <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
-                Employee Related
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
-                PKR {(employeeExpenses / 1000).toFixed(0)}k
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {[
+          { label: 'Total Expenses', value: totalExpenses, icon: <MoneyIcon />, bg: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' },
+          { label: 'Daily Expenses', value: dailyExpenses, icon: <CalendarIcon />, bg: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' },
+          { label: 'Monthly Fixed', value: monthlyExpenses, icon: <MoneyIcon />, bg: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+          { label: 'Employee Related', value: employeeExpenses, icon: <EmployeeIcon />, bg: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+        ].map((stat) => (
+          <Grid item xs={12} sm={6} md={3} key={stat.label}>
+            <Card sx={{ background: stat.bg }}>
+              <CardContent>
+                <Avatar sx={{ bgcolor: '#ffffff20', color: '#ffffff', width: 48, height: 48, mb: 2 }}>
+                  {stat.icon}
+                </Avatar>
+                <Typography variant="body2" sx={{ color: '#ffffff80', mb: 1 }}>
+                  {stat.label}
+                </Typography>
+                <Typography variant="h4" sx={{ fontWeight: 700, color: '#ffffff' }}>
+                  PKR {(stat.value / 1000).toFixed(0)}k
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -217,24 +249,24 @@ export default function Expenses() {
                 Expense History
               </Typography>
               <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                <TextField
-                  placeholder="Search expenses..."
-                  size="small"
-                  sx={{ minWidth: 250, borderRadius: 8 }}
-                />
-                <Select size="small" defaultValue="all" sx={{ minWidth: 150 }} value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+                <Select size="small" sx={{ minWidth: 150 }} value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
                   <MenuItem value="all">All Categories</MenuItem>
                   {categories.map((cat) => (
                     <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                   ))}
                 </Select>
-                <Select size="small" defaultValue="all" sx={{ minWidth: 150 }} value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+                <Select size="small" sx={{ minWidth: 150 }} value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
                   <MenuItem value="all">All Types</MenuItem>
                   <MenuItem value="daily">Daily</MenuItem>
                   <MenuItem value="monthly">Monthly</MenuItem>
                   <MenuItem value="employee">Employee</MenuItem>
                 </Select>
               </Box>
+              {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : (
               <TableContainer>
                 <Table>
                   <TableHead>
@@ -250,15 +282,16 @@ export default function Expenses() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {expenses
-                      .filter((e) => {
-                        if (selectedCategory !== 'all' && e.category !== selectedCategory) return false;
-                        if (selectedType !== 'all' && e.type !== selectedType) return false;
-                        return true;
-                      })
-                      .map((expense) => (
+                    {visibleExpenses.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8} align="center" sx={{ color: '#64748b', py: 4 }}>
+                          No expenses recorded yet
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {visibleExpenses.map((expense) => (
                       <TableRow key={expense.id} hover>
-                        <TableCell>{expense.date}</TableCell>
+                        <TableCell>{expense.expense_date}</TableCell>
                         <TableCell>
                           <Chip
                             label={expense.category}
@@ -289,9 +322,9 @@ export default function Expenses() {
                             }}
                           />
                         </TableCell>
-                        <TableCell>{expense.employee || '-'}</TableCell>
+                        <TableCell>{employeeName(expense.employee_id) || '-'}</TableCell>
                         <TableCell>
-                          {expense.isDeductible ? (
+                          {expense.is_salary_deductible ? (
                             <Chip label="Yes" size="small" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontWeight: 600 }} />
                           ) : (
                             <Chip label="No" size="small" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 600 }} />
@@ -301,10 +334,7 @@ export default function Expenses() {
                           PKR {expense.amount.toLocaleString()}
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small" color="primary">
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton size="small" color="error">
+                          <IconButton size="small" color="error" onClick={() => handleDeleteExpense(expense.id)}>
                             <DeleteIcon />
                           </IconButton>
                         </TableCell>
@@ -313,6 +343,7 @@ export default function Expenses() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -324,10 +355,11 @@ export default function Expenses() {
                 Category Breakdown
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {categories.slice(0, 7).map((category) => {
+                {categories.map((category) => {
                   const categoryTotal = expenses
                     .filter((e) => e.category === category)
                     .reduce((sum, e) => sum + e.amount, 0);
+                  if (categoryTotal === 0) return null;
                   const percentage = totalExpenses > 0 ? (categoryTotal / totalExpenses) * 100 : 0;
                   return (
                     <Paper key={category} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 8 }}>
@@ -348,6 +380,11 @@ export default function Expenses() {
                     </Paper>
                   );
                 })}
+                {totalExpenses === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    No expense data yet
+                  </Typography>
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -360,38 +397,59 @@ export default function Expenses() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <TextField label="Date" fullWidth type="date" size="small" InputLabelProps={{ shrink: true }} />
+                <TextField label="Date" fullWidth type="date" size="small" InputLabelProps={{ shrink: true }}
+                  value={expenseForm.expense_date}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <Select label="Category" fullWidth size="small" defaultValue="" displayEmpty>
-                  <MenuItem value="" disabled>Select Category</MenuItem>
-                  {categories.map((cat) => (
-                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                  ))}
-                </Select>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Category</InputLabel>
+                  <Select label="Category" value={expenseForm.category}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}>
+                    {categories.map((cat) => (
+                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <TextField label="Description" fullWidth required multiline rows={2} placeholder="Describe the expense..." />
+                <TextField label="Description" fullWidth required multiline rows={2} placeholder="Describe the expense..."
+                  value={expenseForm.description}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <Select label="Expense Type" fullWidth size="small" defaultValue="" displayEmpty>
-                  <MenuItem value="" disabled>Select Type</MenuItem>
-                  <MenuItem value="daily">Daily Expense</MenuItem>
-                  <MenuItem value="monthly">Monthly Fixed</MenuItem>
-                  <MenuItem value="employee">Employee Related</MenuItem>
-                </Select>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Expense Type</InputLabel>
+                  <Select label="Expense Type" value={expenseForm.type}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, type: e.target.value })}>
+                    <MenuItem value="daily">Daily Expense</MenuItem>
+                    <MenuItem value="monthly">Monthly Fixed</MenuItem>
+                    <MenuItem value="employee">Employee Related</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Amount (PKR)" fullWidth type="number" required />
+                <TextField label="Amount (PKR)" fullWidth type="number" required
+                  value={expenseForm.amount}
+                  onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField label="Employee Name" fullWidth placeholder="For employee-related expenses" />
+                <FormControl fullWidth size="small">
+                  <InputLabel>Employee</InputLabel>
+                  <Select label="Employee" value={expenseForm.employee_id}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, employee_id: e.target.value })}>
+                    <MenuItem value="">None</MenuItem>
+                    {employees.map((emp) => (
+                      <MenuItem key={emp.id} value={emp.id}>{emp.full_name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControlLabel
-                  control={<Checkbox />}
+                  control={<Checkbox checked={expenseForm.is_salary_deductible}
+                    onChange={(e) => setExpenseForm({ ...expenseForm, is_salary_deductible: e.target.checked })} />}
                   label="Salary Deductible"
-                  sx={{ mt: 2 }}
                 />
               </Grid>
             </Grid>
@@ -402,6 +460,8 @@ export default function Expenses() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
+            onClick={handleAddExpense}
+            disabled={!expenseForm.category || !expenseForm.description || !expenseForm.type || !expenseForm.amount}
             sx={{ borderRadius: 8, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
           >
             Add Expense
