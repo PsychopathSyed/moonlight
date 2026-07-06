@@ -80,7 +80,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-          backgroundImage: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          backgroundImage: 'none',
           border: '1px solid #e2e8f0',
         },
       },

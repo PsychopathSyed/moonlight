@@ -506,11 +506,16 @@ class DashboardStatsResponse(BaseModel):
     consumables: int
     tools: int
     active_rentals: int
-    pending_returns: int
+    low_stock_items: int
+    pending_orders: int
     pending_invoices: int
-    this_month_revenue: Decimal
+    overdue_invoices: int
     total_customers: int
     pending_notifications: int
+    revenue: float
+    revenue_previous: float
+    revenue_delta_pct: Optional[float] = None
+    range: str
 
 class NotificationResponse(BaseModel):
     """Notification response"""

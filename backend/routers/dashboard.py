@@ -1,9 +1,9 @@
 """
 Dashboard statistics and widgets routes
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, and_
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -14,9 +14,31 @@ from schemas import DashboardStatsResponse, NotificationResponse
 # Router
 router = APIRouter( tags=["Dashboard"])
 
+
+def _window_for_range(rng: str):
+    """Return (current_start, current_end, previous_start, previous_end) for a range."""
+    today = date.today()
+    if rng == "today":
+        cur_start, cur_end = today, today
+        prev_start, prev_end = today - timedelta(days=1), today - timedelta(days=1)
+    elif rng == "week":
+        # Rolling 7-day window ending today
+        cur_start, cur_end = today - timedelta(days=6), today
+        prev_start, prev_end = today - timedelta(days=13), today - timedelta(days=7)
+    else:  # month -> current calendar month vs previous calendar month
+        cur_start = today.replace(day=1)
+        cur_end = today
+        if today.month == 1:
+            prev_start = today.replace(year=today.year - 1, month=12, day=1)
+        else:
+            prev_start = today.replace(month=today.month - 1, day=1)
+        prev_end = cur_start - timedelta(days=1)
+    return cur_start, cur_end, prev_start, prev_end
+
+
 @router.get("/stats", response_model=DashboardStatsResponse)
-async def get_dashboard_stats(db: Session = Depends(get_db)):
-    """Get dashboard statistics"""
+async def get_dashboard_stats(db: Session = Depends(get_db), range: str = Query("month", pattern="^(today|week|month)$")):
+    """Get dashboard statistics. `range` scopes revenue (today/week/month); stock/order/invoice counts are live snapshots."""
     # Inventory stats
     total_inventory = db.query(func.count(Item.id)).scalar()
     rentable_items = db.query(func.count(Item.id)).filter(Item.item_type == 'rentable').scalar()
@@ -28,23 +50,43 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         func.coalesce(Item.available_quantity, 0) < func.coalesce(Item.min_stock_level, 0)
     ).scalar()
 
-    # Order stats
+    # Order stats (live snapshots)
     active_rentals = db.query(func.count(Order.id)).filter(Order.status == 'in_progress').scalar()
     pending_orders = db.query(func.count(Order.id)).filter(Order.status == 'pending').scalar()
 
-    # Invoice stats
+    # Invoice stats (live snapshots)
     pending_invoices = db.query(func.count(Invoice.id)).filter(Invoice.status == 'pending').scalar()
-    overdue_invoices = db.query(func.count(Invoice.id)).filter(Invoice.status == 'overdue').scalar()
+    overdue_invoices = db.query(func.count(Invoice.id)).filter(
+        Invoice.status == 'overdue'
+    ).scalar()
+    # Defensive: also count unpaid invoices past their due date (covers status drift)
+    overdue_invoices = (overdue_invoices or 0) + (db.query(func.count(Invoice.id)).filter(
+        and_(
+            Invoice.due_date < date.today(),
+            Invoice.balance > 0,
+            Invoice.status.in_(['pending', 'partial'])
+        )
+    ).scalar() or 0)
 
     # Customer stats
     total_customers = db.query(func.count(Customer.id)).scalar()
 
-    # Revenue stats (this month)
-    this_month = date.today().replace(day=1)
-    this_month_revenue = db.query(func.sum(Invoice.total_amount)).filter(
-        Invoice.invoice_date >= this_month,
-        Invoice.status != 'cancelled'
-    ).scalar() or Decimal('0')
+    # Revenue (range-scoped): current window vs previous window for delta
+    cur_start, cur_end, prev_start, prev_end = _window_for_range(range)
+
+    def _sum_revenue(start, end):
+        return db.query(func.sum(Invoice.total_amount)).filter(
+            Invoice.invoice_date >= start,
+            Invoice.invoice_date <= end,
+            Invoice.status != 'cancelled'
+        ).scalar() or Decimal('0')
+
+    revenue = float(_sum_revenue(cur_start, cur_end))
+    revenue_previous = float(_sum_revenue(prev_start, prev_end))
+    if revenue_previous > 0:
+        revenue_delta_pct = round(((revenue - revenue_previous) / revenue_previous) * 100, 1)
+    else:
+        revenue_delta_pct = None
 
     # Notification stats
     pending_notifications = db.query(func.count(Notification.id)).filter(
@@ -57,11 +99,16 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         consumables=consumables or 0,
         tools=tools or 0,
         active_rentals=active_rentals or 0,
-        pending_returns=low_stock_items or 0,
+        low_stock_items=low_stock_items or 0,
+        pending_orders=pending_orders or 0,
         pending_invoices=pending_invoices or 0,
-        this_month_revenue=float(this_month_revenue) if this_month_revenue else 0.0,
+        overdue_invoices=overdue_invoices or 0,
         total_customers=total_customers or 0,
-        pending_notifications=pending_notifications or 0
+        pending_notifications=pending_notifications or 0,
+        revenue=revenue,
+        revenue_previous=revenue_previous,
+        revenue_delta_pct=revenue_delta_pct,
+        range=range,
     )
 
 @router.get("/notifications", response_model=dict)

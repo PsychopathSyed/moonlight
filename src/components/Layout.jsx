@@ -122,7 +122,7 @@ export default function Layout() {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Toolbar sx={{
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+        background: '#6366f1',
         py: 2,
         minHeight: 64,
       }}>
@@ -201,7 +201,7 @@ export default function Layout() {
         sx={{
           width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
           ml: { sm: `${DRAWER_WIDTH}px` },
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          background: '#ffffff',
           boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
           borderBottom: '1px solid #e2e8f0',
         }}
